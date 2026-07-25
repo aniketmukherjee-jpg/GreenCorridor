@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+/* Enable class-based dark mode for Tailwind v4 */
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --animate-radar: radar 2s linear infinite;
+  --animate-dash: dash 5s linear infinite;
+  
+  @keyframes radar {
+    0% { transform: scale(0.5); opacity: 0; }
+    50% { opacity: 0.5; }
+    100% { transform: scale(2.5); opacity: 0; }
+  }
+  @keyframes dash {
+    to { stroke-dashoffset: -100; }
+  }
+}
+
+.radar-sweep {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 60px;
+  height: 60px;
+  margin-top: -30px;
+  margin-left: -30px;
+  border-radius: 50%;
+  border: 2px solid rgba(59, 130, 246, 0.8);
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+  animation: radar 2s linear infinite;
+  pointer-events: none;
+}

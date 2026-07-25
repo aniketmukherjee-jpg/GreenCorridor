@@ -1,0 +1,30 @@
+# Dependency directories
+node_modules/
+frontend/node_modules/
+frontend/dist/
+backend/venv/
+venv/
+.venv/
+env/
+.env
+
+# Python caching and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# OS and Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Log files
+*.log
+logs/

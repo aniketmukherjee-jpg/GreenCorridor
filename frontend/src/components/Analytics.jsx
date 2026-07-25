@@ -31,6 +31,22 @@ const hospitalLoad = [
   { day: 'Sun', icu: 55, emergency: 35, general: 60 },
 ];
 
+// Tier 2: Analytical Additions
+const responseByZone = [
+  { zone: 'Central Zone', avgResponse: 11.2, target: 15 },
+  { zone: 'South Zone', avgResponse: 13.8, target: 15 },
+  { zone: 'East Zone', avgResponse: 17.5, target: 15 }, // High congestion delay
+  { zone: 'West Zone', avgResponse: 14.1, target: 15 },
+  { zone: 'North Zone', avgResponse: 12.9, target: 15 },
+];
+
+const hospitalLoadBalancing = [
+  { name: 'Victoria Hospital', occupied: 82, total: 100 },
+  { name: 'Bowring Hospital', occupied: 45, total: 60 },
+  { name: 'St. Johns Hospital', occupied: 70, total: 80 },
+  { name: 'Narayana Health', occupied: 95, total: 120 },
+];
+
 const Analytics = () => {
   return (
     <div className="w-full p-4 md:p-8 relative min-h-[calc(100vh-80px)]">
@@ -101,9 +117,49 @@ const Analytics = () => {
             </div>
           </div>
 
+          {/* Tier 2 Chart: Response Time by Zone */}
+          <div className="backdrop-blur-xl bg-white/70 dark:bg-gray-900/70 p-6 rounded-3xl border border-white/60 dark:border-gray-700/50 animate-in fade-in slide-in-from-bottom-4 delay-100">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Average Response Time by Zone</h2>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={responseByZone}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.2} />
+                  <XAxis dataKey="zone" stroke="#6B7280" fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#6B7280" fontSize={12} tickLine={false} axisLine={false} unit="m" />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'rgba(17, 24, 39, 0.9)', border: 'none', borderRadius: '12px', color: '#fff' }}
+                  />
+                  <Legend />
+                  <Bar dataKey="avgResponse" name="Avg Response" fill="#ec4899" radius={[4, 4, 0, 0]} barSize={24} />
+                  <Line type="dashed" name="Target (15m)" dataKey="target" stroke="#10b981" strokeWidth={2} strokeDasharray="5 5" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Tier 2 Chart: Hospital Load Balancing */}
+          <div className="backdrop-blur-xl bg-white/70 dark:bg-gray-900/70 p-6 rounded-3xl border border-white/60 dark:border-gray-700/50 animate-in fade-in slide-in-from-bottom-4 delay-100">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Hospital Load Balancing</h2>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={hospitalLoadBalancing}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.2} />
+                  <XAxis dataKey="name" stroke="#6B7280" fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#6B7280" fontSize={12} tickLine={false} axisLine={false} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'rgba(17, 24, 39, 0.9)', border: 'none', borderRadius: '12px', color: '#fff' }}
+                  />
+                  <Legend />
+                  <Bar dataKey="occupied" name="Occupied Beds" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={16} />
+                  <Bar dataKey="total" name="Total Capacity" fill="#10b981" radius={[4, 4, 0, 0]} barSize={16} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
           {/* Hospital Load Area Chart */}
           <div className="backdrop-blur-xl bg-white/70 dark:bg-gray-900/70 p-6 rounded-3xl border border-white/60 dark:border-gray-700/50 lg:col-span-2 animate-in fade-in slide-in-from-bottom-4 delay-150">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Hospital Network Load (7-Day)</h2>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Hospital Network Load (7-Day Trend)</h2>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={hospitalLoad}>

@@ -123,6 +123,60 @@ const calculateTotalDistance = (route) => {
   return total;
 };
 
+// Heuristic Predictive ETA formula (viva defendable)
+const getPredictiveETA = (route, progress, reportsList, currentTime = new Date()) => {
+  const remainingRoute = route.slice(Math.floor(progress * route.length));
+  if (remainingRoute.length < 2) return 1;
+
+  const remainingDistDeg = calculateTotalDistance(remainingRoute);
+  // Conversion factor: coordinate degrees to actual km (1 degree ≈ 130 km in Bangalore grid)
+  const remainingDistKm = remainingDistDeg * 130;
+
+  // Base travel time: assuming 45 km/h base speed
+  const baseTimeMins = (remainingDistKm / 45) * 60;
+
+  // 1. Time-of-day multipliers
+  let timeOfDayFactor = 0;
+  const hours = currentTime.getHours();
+  const isPeak = (hours >= 8 && hours <= 10) || (hours >= 17 && hours <= 20);
+  const isNight = hours >= 23 || hours < 6;
+
+  if (isPeak) {
+    timeOfDayFactor = 0.35; // +35% during rush hour traffic
+  } else if (isNight) {
+    timeOfDayFactor = -0.15; // -15% at night with empty streets
+  }
+
+  // 2. Incident delay multipliers along the remaining route
+  let congestionFactor = 0;
+  let incidentPenalty = 0;
+
+  reportsList.forEach(report => {
+    const rx = report.lat || report.latitude;
+    const ry = report.lng || report.longitude;
+    if (!rx || !ry) return;
+
+    let isNearRoute = false;
+    remainingRoute.forEach(pt => {
+      const dist = Math.sqrt((pt[0] - rx) ** 2 + (pt[1] - ry) ** 2);
+      if (dist < 0.0045) isNearRoute = true; // within 500m
+    });
+
+    if (isNearRoute) {
+      if (report.severity === 'high' || report.severity === 'HIGH') {
+        incidentPenalty += 5.0; // add 5 minutes flat for major blockages
+        congestionFactor += 0.20; // +20% congestion delay
+      } else {
+        incidentPenalty += 2.0; // add 2 minutes flat for minor blockages
+        congestionFactor += 0.05; // +5% congestion delay
+      }
+    }
+  });
+
+  const finalETA = baseTimeMins * (1 + timeOfDayFactor + congestionFactor) + incidentPenalty;
+  return Math.max(1, Math.ceil(finalETA));
+};
+
 const INITIAL_LIGHTS = [
   { id: 'L1', name: 'Trinity Signal', pos: [12.9725, 77.6100], status: 'red' },
   { id: 'L2', name: 'MG Road Junction', pos: [12.9715, 77.6000], status: 'red' },
@@ -182,7 +236,6 @@ export const SimulationProvider = ({ children }) => {
     }
   }, []);
 
-  // Recalculates paths automatically when new verified/high-severity reports affect them
   const triggerRerouteForIncident = useCallback((incident, customWeights) => {
     const weights = customWeights || trafficWeights;
     let closestEdge = null;
@@ -202,7 +255,6 @@ export const SimulationProvider = ({ children }) => {
       }
     });
 
-    // If within 500m (approx 0.0045 lat/lng degrees)
     if (closestEdge && minDistance < 0.0045) {
       const key = `${closestEdge.from}-${closestEdge.to}`;
       const revKey = `${closestEdge.to}-${closestEdge.from}`;
@@ -215,7 +267,6 @@ export const SimulationProvider = ({ children }) => {
         const nextMissions = prevMissions.map(mission => {
           if (mission.state !== 'NAVIGATING') return mission;
 
-          // Check if any point on active mission's route is near the incident
           let isNearRoute = false;
           mission.route.forEach(pt => {
             const ptDist = Math.sqrt((pt[0] - px) ** 2 + (pt[1] - py) ** 2);
@@ -243,7 +294,6 @@ export const SimulationProvider = ({ children }) => {
                 const totalDist = calculateTotalDistance(newRouteCoords);
                 reroutedAny = true;
                 
-                // Add event delay to allow React state updates
                 setTimeout(() => {
                   info(`🚨 Rerouting alert: Incident near active path! Recalculating path around segment: ${closestEdge.from} to ${closestEdge.to}`);
                   addEvent('Ambulance Rerouted', `Unit ${mission.id} dynamically bypassed segment ${closestEdge.from}-${closestEdge.to} via A*`, 'warning');
@@ -254,7 +304,7 @@ export const SimulationProvider = ({ children }) => {
                   route: newRouteCoords,
                   totalDist,
                   progress: 0, 
-                  eta: Math.ceil(totalDist * 15 * 10)
+                  eta: getPredictiveETA(newRouteCoords, 0, reports)
                 };
               }
             }
@@ -264,7 +314,7 @@ export const SimulationProvider = ({ children }) => {
         return reroutedAny ? nextMissions : prevMissions;
       });
     }
-  }, [trafficWeights, info, addEvent]);
+  }, [trafficWeights, info, addEvent, reports]);
 
   const addReport = useCallback((newReport) => {
     setReports(prev => [newReport, ...prev]);
@@ -287,7 +337,6 @@ export const SimulationProvider = ({ children }) => {
             updated.status = 'VERIFIED';
             addEvent('Incident Verified', `Report #${id} has been crowd-verified (5+ confirmations)`, 'success');
             
-            // Auto-trigger rerouting alerts
             if (r.severity === 'high' || r.severity === 'HIGH') {
               setTimeout(() => triggerRerouteForIncident(updated), 100);
             }
@@ -304,7 +353,7 @@ export const SimulationProvider = ({ children }) => {
     }
   }, [success, addEvent, triggerRerouteForIncident]);
 
-  const startMission = (id = `M-${Math.floor(Math.random()*1000)}`, routeId = 'route1', color = 'blue') => {
+  const startMission = (id = `M-${Math.floor(Math.random()*1000)}`, routeId = 'route1', color = 'blue', priority = 'HIGH') => {
     let startNode = 'TRINITY';
     let endNode = 'VICTORIA_HOSP';
 
@@ -315,6 +364,7 @@ export const SimulationProvider = ({ children }) => {
     const nodePath = aStar(startNode, endNode, trafficWeights);
     const route = nodePath && nodePath.length > 0 ? getRouteCoordinates(nodePath) : (routeId === 'route2' ? getRouteCoordinates(['CANTONMENT', 'VIDHANA_SOUDHA', 'HUDSON', 'CORP_CIRCLE', 'VICTORIA_HOSP']) : getRouteCoordinates(['TRINITY', 'MG_ROAD', 'HUDSON', 'CORP_CIRCLE', 'TOWN_HALL', 'VICTORIA_HOSP']));
     const totalDist = calculateTotalDistance(route);
+    const initialETA = getPredictiveETA(route, 0, reports);
     
     setActiveMissions(prev => {
       if (prev.find(m => m.id === id)) return prev;
@@ -324,14 +374,15 @@ export const SimulationProvider = ({ children }) => {
         progress: 0,
         position: route[0],
         state: 'NAVIGATING',
-        eta: Math.ceil(totalDist * 15 * 10),
+        eta: initialETA,
+        priority,
         route,
         totalDist,
         color
       }];
     });
     
-    addEvent('Mission Started', `Ambulance ${id} dispatched via optimal path: ${nodePath.join(' -> ')}`, 'info');
+    addEvent('Mission Started', `Ambulance ${id} dispatched via optimal path: ${nodePath.join(' -> ')}. Predictive ETA: ${initialETA} mins.`, 'info');
   };
 
   const endMission = (id) => {
@@ -371,19 +422,54 @@ export const SimulationProvider = ({ children }) => {
           }
 
           const newPos = getPositionAtProgress(nextProgress, mission.route, mission.totalDist);
-          const newEta = Math.ceil((1 - nextProgress) * 15);
+          const newEta = getPredictiveETA(mission.route, nextProgress, reports);
 
-          // Check traffic lights for this ambulance
+          // Check traffic lights and execute Signal Conflict Resolution
           setTrafficLights(prevLights => {
             let lightsUpdated = false;
             const newLights = prevLights.map(light => {
-              if (light.status === 'green') return light; 
-              
-              const dist = Math.sqrt(Math.pow(light.pos[0] - newPos[0], 2) + Math.pow(light.pos[1] - newPos[1], 2));
-              if (dist < TRIGGER_RADIUS) {
+              // Find all active ambulances near this traffic light
+              const approachingMissions = prevMissions.filter(m => {
+                if (m.state !== 'NAVIGATING') return false;
+                const d = Math.sqrt(Math.pow(light.pos[0] - m.position[0], 2) + Math.pow(light.pos[1] - m.position[1], 2));
+                return d < TRIGGER_RADIUS;
+              });
+
+              if (approachingMissions.length === 0) {
+                return light; // keep status
+              }
+
+              if (approachingMissions.length === 1) {
+                const singleAmb = approachingMissions[0];
+                if (light.status !== 'green' || light.prioritizedFor !== singleAmb.id) {
+                  lightsUpdated = true;
+                  addEvent('Corridor Cleared', `${light.name} turned green for ${singleAmb.id}`, 'success');
+                  return { ...light, status: 'green', prioritizedFor: singleAmb.id };
+                }
+                return light;
+              }
+
+              // Multi-ambulance preemption conflict at this intersection!
+              // Priority hierarchy: CRITICAL (3) > HIGH (2) > MEDIUM (1)
+              const weight = { 'CRITICAL': 3, 'HIGH': 2, 'MEDIUM': 1, 'unknown': 0 };
+              const sortedMissions = [...approachingMissions].sort((a, b) => {
+                const wA = weight[a.priority] || 2;
+                const wB = weight[b.priority] || 2;
+                return wB - wA;
+              });
+
+              const prioritized = sortedMissions[0];
+              const blocked = sortedMissions.slice(1);
+
+              if (light.status !== 'green' || light.prioritizedFor !== prioritized.id) {
                 lightsUpdated = true;
-                addEvent('Corridor Cleared', `${light.name} turned green for ${mission.id}`, 'success');
-                return { ...light, status: 'green' };
+                const blockedList = blocked.map(b => `${b.id} (${b.priority})`).join(', ');
+                addEvent(
+                  'Conflict Resolved ⚠️', 
+                  `Signal prioritized for ${prioritized.id} (${prioritized.priority}) over blocked unit(s) [${blockedList}] at ${light.name}`, 
+                  'warning'
+                );
+                return { ...light, status: 'green', prioritizedFor: prioritized.id };
               }
               return light;
             });
@@ -403,7 +489,7 @@ export const SimulationProvider = ({ children }) => {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [activeMissions.length, addEvent]);
+  }, [activeMissions.length, addEvent, reports]);
 
   return (
     <SimulationContext.Provider value={{

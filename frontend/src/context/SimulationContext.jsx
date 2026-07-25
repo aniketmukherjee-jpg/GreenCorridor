@@ -224,6 +224,20 @@ export const SimulationProvider = ({ children }) => {
     setEvents(prev => [{ id: Date.now() + Math.random(), title, description, type, time: new Date() }, ...prev]);
   }, []);
 
+  const addReport = useCallback((newReport) => {
+    setReports(prev => {
+      if (prev.find(r => r.id === newReport.id)) return prev;
+      return [newReport, ...prev];
+    });
+    
+    const isHigh = newReport.severity === 'high' || newReport.severity === 'HIGH';
+    const isVerified = newReport.status === 'verified' || newReport.status === 'VERIFIED' || newReport.confirmation_count >= 5;
+    
+    if (isHigh && isVerified) {
+      triggerRerouteForIncident(newReport);
+    }
+  }, []);
+
   // Fetch reports on mount
   useEffect(() => {
     if (USE_MOCK_DATA) {
@@ -234,6 +248,68 @@ export const SimulationProvider = ({ children }) => {
         .then(data => setReports(data))
         .catch(err => console.error("Error loading API reports:", err));
     }
+  }, []);
+
+  // --- WebSocket Connection ---
+  useEffect(() => {
+    if (USE_MOCK_DATA) return;
+
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = BACKEND_URL.replace(/^https?:/, wsProtocol) + '/ws/traffic/';
+    
+    console.log(`Connecting to WebSocket: ${wsUrl}`);
+    const socket = new WebSocket(wsUrl);
+
+    socket.onopen = () => {
+      console.log('WebSocket connection established.');
+    };
+
+    socket.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        console.log('Received WebSocket message:', payload);
+        
+        if (payload.event === 'incident_created') {
+          addReport(payload.data);
+          info(`📢 Real-time Alert: New ${payload.data.category.replace('_', ' ').toUpperCase()} incident reported.`);
+        } else if (payload.event === 'alert_escalated') {
+          info(`🚨 ESCALATION: Alert for Mission #${payload.data.mission_id} escalated to ${payload.data.escalated_to_zone}!`);
+          addEvent(
+            'Escalation Warning ⚠️', 
+            `Unacknowledged alert escalated from ${payload.data.original_zone} to closest adjacent zone: ${payload.data.escalated_to_zone}`, 
+            'warning'
+          );
+        }
+      } catch (err) {
+        console.error('Error parsing WS message:', err);
+      }
+    };
+
+    socket.onclose = () => {
+      console.log('WebSocket disconnected.');
+    };
+
+    return () => {
+      socket.close();
+    };
+  }, [addReport, info, addEvent]);
+
+  // --- Escalation Background Polling ---
+  useEffect(() => {
+    if (USE_MOCK_DATA) return;
+
+    const interval = setInterval(() => {
+      fetch(`${BACKEND_URL}/api/police-alerts/check_escalations/`, { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+          if (data.escalated_count > 0) {
+            console.log(`Backend escalated ${data.escalated_count} alerts via API.`);
+          }
+        })
+        .catch(err => console.error("Escalation check error:", err));
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(interval);
   }, []);
 
   const triggerRerouteForIncident = useCallback((incident, customWeights) => {
@@ -315,16 +391,6 @@ export const SimulationProvider = ({ children }) => {
       });
     }
   }, [trafficWeights, info, addEvent, reports]);
-
-  const addReport = useCallback((newReport) => {
-    setReports(prev => [newReport, ...prev]);
-    const isHigh = newReport.severity === 'high' || newReport.severity === 'HIGH';
-    const isVerified = newReport.status === 'verified' || newReport.status === 'VERIFIED' || newReport.confirmation_count >= 5;
-    
-    if (isHigh && isVerified) {
-      triggerRerouteForIncident(newReport);
-    }
-  }, [triggerRerouteForIncident]);
 
   const confirmReport = useCallback((id) => {
     success(`Report #${id} confirmed. Thank you!`);

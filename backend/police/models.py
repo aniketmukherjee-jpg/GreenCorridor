@@ -20,5 +20,9 @@ class PoliceAlert(models.Model):
     acknowledged_at = models.DateTimeField(null=True, blank=True)
     cleared_at = models.DateTimeField(null=True, blank=True)
 
+    # Tier 3: Notification Escalation fields
+    is_escalated = models.BooleanField(default=False)
+    escalated_to = models.ForeignKey(PoliceZone, on_delete=models.SET_NULL, null=True, blank=True, related_name='escalated_alerts')
+
     def __str__(self):
         return f"Alert for {self.zone.name} (Mission {self.mission.id})"

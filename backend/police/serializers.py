@@ -8,6 +8,7 @@ class PoliceZoneSerializer(serializers.ModelSerializer):
 
 class PoliceAlertSerializer(serializers.ModelSerializer):
     zone_name = serializers.CharField(source='zone.name', read_only=True)
+    escalated_to_name = serializers.CharField(source='escalated_to.name', read_only=True, allow_null=True)
 
     class Meta:
         model = PoliceAlert

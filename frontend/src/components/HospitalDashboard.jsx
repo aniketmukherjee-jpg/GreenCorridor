@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { USE_MOCK_DATA } from '../config';
-import { mockMissions, mockAmbulances } from '../mock/missions';
+import { mockMissions } from '../mock/missions';
 import { useToast } from '../context/ToastContext';
-import { useSimulation } from '../context/SimulationContext';
+import { useSimulation, NODES } from '../context/SimulationContext';
 
 const AICopilot = ({ missions }) => {
   const [messages, setMessages] = useState([
@@ -53,13 +53,102 @@ const AICopilot = ({ missions }) => {
   );
 };
 
+// Simple list of ambulances with base mock locations for dispatch scoring
+const extendedMockAmbulances = [
+  { id: "AMB-117", plate: "KA-05-CD-1178", status: "available", level: "BLS", driver: "S. Iyer", locationNode: "MG_ROAD" },
+  { id: "AMB-088", plate: "KA-03-EF-0882", status: "available", level: "ALS", driver: "A. Rao", locationNode: "CANTONMENT" },
+  { id: "AMB-204", plate: "KA-01-AB-2041", status: "on_mission", level: "ALS", driver: "R. Kumar", locationNode: "TRINITY" },
+  { id: "AMB-309", plate: "KA-02-GH-3092", status: "available", level: "ALS", driver: "K. Reddy", locationNode: "HUDSON" },
+  { id: "AMB-501", plate: "KA-04-LM-5012", status: "maintenance", level: "BLS", driver: "P. Patel", locationNode: "TOWN_HALL" }
+];
+
+// Haversine Distance helper
+const haversineDistance = (p1, p2) => {
+  const R = 6371; 
+  const dLat = (p2[0] - p1[0]) * Math.PI / 180;
+  const dLng = (p2[1] - p1[1]) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(p1[0] * Math.PI / 180) * Math.cos(p2[0] * Math.PI / 180) * 
+    Math.sin(dLng/2) * Math.sin(dLng/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+};
+
+// Ambulance Scoring Engine
+const calculateAmbulanceScore = (amb, pickupNodeId, condition) => {
+  let score = 100;
+  const deductions = [];
+
+  // 1. Distance Penalty (-5 per km, max -50)
+  const ambPos = NODES[amb.locationNode || 'VICTORIA_HOSP'].pos;
+  const pickupPos = NODES[pickupNodeId || 'TRINITY'].pos;
+  const dist = haversineDistance(ambPos, pickupPos);
+  const distPenalty = Math.min(50, Math.round(dist * 5));
+  score -= distPenalty;
+  if (distPenalty > 0) {
+    deductions.push(`Distance: -${distPenalty} (${dist.toFixed(1)}km)`);
+  }
+
+  // 2. Equipment Penalty
+  const isCritical = ['cardiac', 'heart', 'stroke', 'unconscious', 'trauma', 'bleeding', 'severe'].some(kw => 
+    condition.toLowerCase().includes(kw)
+  );
+  const isALS = amb.level === 'ALS';
+
+  if (isCritical && !isALS) {
+    score -= 25;
+    deductions.push('Equip: -25 (BLS assigned to critical condition)');
+  } else if (!isCritical && isALS) {
+    score -= 5;
+    deductions.push('Equip: -5 (ALS overqualified for minor condition)');
+  } else {
+    deductions.push('Equip: Match');
+  }
+
+  // 3. Status Penalty
+  if (amb.status === 'available') {
+    // no penalty
+  } else if (amb.status === 'on_mission' || amb.status === 'dispatched') {
+    score -= 40;
+    deductions.push('Status: -40 (Currently Active)');
+  } else { // maintenance
+    score -= 90;
+    deductions.push('Status: -90 (In Maintenance)');
+  }
+
+  return {
+    score: Math.max(0, score),
+    deductions,
+    distance: dist
+  };
+};
+
 const HospitalDashboard = () => {
   const [missions, setMissions] = useState([]);
-  const [ambulances] = useState(USE_MOCK_DATA ? mockAmbulances : []);
+  const [ambulances, setAmbulances] = useState(extendedMockAmbulances);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedMission, setSelectedMission] = useState(null);
   const { success, error } = useToast();
-  const { activeMissions } = useSimulation();
+  const { activeMissions, startMission } = useSimulation();
+
+  // Form States for Score Ranker
+  const [pickupNode, setPickupNode] = useState('TRINITY');
+  const [patientCondition, setPatientCondition] = useState('cardiac');
+  const [selectedAmbulanceId, setSelectedAmbulanceId] = useState('');
+
+  // Dynamically compute scores based on form changes
+  const rankedAmbulances = ambulances.map(amb => {
+    const evalResult = calculateAmbulanceScore(amb, pickupNode, patientCondition);
+    return { ...amb, ...evalResult };
+  }).sort((a, b) => b.score - a.score);
+
+  // Set default selected ambulance on modal open or node change
+  useEffect(() => {
+    if (rankedAmbulances.length > 0) {
+      setSelectedAmbulanceId(rankedAmbulances[0].id);
+    }
+  }, [pickupNode, patientCondition]);
 
   useEffect(() => {
     if (USE_MOCK_DATA) {
@@ -74,22 +163,32 @@ const HospitalDashboard = () => {
   const handleNewMission = (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
+    const selectedAmb = ambulances.find(a => a.id === selectedAmbulanceId);
+    
     const newMission = {
       id: `m${Math.floor(Math.random() * 1000)}`,
       priority: formData.get('priority'),
       status: 'PENDING',
-      pickup_location: formData.get('pickup'),
+      pickup_location: NODES[pickupNode].name,
       destination_hospital: formData.get('hospital'),
-      ambulance_id: formData.get('ambulance') || 'Unassigned',
-      patient_condition_tag: 'unknown',
+      ambulance_id: selectedAmbulanceId || 'Unassigned',
+      patient_condition_tag: patientCondition,
       eta_minutes: null,
       created_at: new Date().toISOString()
     };
     
-    // Optimistic UI update
+    // Update local ambulance status to dispatched
+    setAmbulances(prev => prev.map(a => 
+      a.id === selectedAmbulanceId ? { ...a, status: 'on_mission' } : a
+    ));
+
+    // Call startMission in global context
+    const routeId = pickupNode === 'CANTONMENT' ? 'route2' : 'route1';
+    startMission(newMission.id, routeId, newMission.priority === 'CRITICAL' ? '#ef4444' : '#3b82f6');
+
     setMissions([newMission, ...missions]);
     setIsModalOpen(false);
-    success('New emergency mission dispatched successfully.');
+    success(`New emergency mission dispatched to ${selectedAmb ? selectedAmb.driver : 'Ambulance'}.`);
   };
 
   const activeCount = missions.filter(m => m.status === 'IN_PROGRESS' || m.status === 'PENDING').length;
@@ -268,8 +367,31 @@ const HospitalDashboard = () => {
               <h2 className="text-2xl font-black mb-4 text-gray-900 dark:text-white">New Dispatch</h2>
               <form onSubmit={handleNewMission} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Pickup Location</label>
-                  <input required name="pickup" type="text" className="w-full bg-white/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2 outline-none focus:ring-2 ring-blue-500 text-gray-900 dark:text-white" placeholder="e.g. MG Road Junction" />
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Pickup Intersection (A* Node)</label>
+                  <select 
+                    required 
+                    value={pickupNode}
+                    onChange={(e) => setPickupNode(e.target.value)}
+                    className="w-full bg-white/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2 outline-none focus:ring-2 ring-blue-500 text-gray-900 dark:text-white"
+                  >
+                    {Object.keys(NODES).filter(n => n !== 'VICTORIA_HOSP').map(nodeId => (
+                      <option key={nodeId} value={nodeId}>{NODES[nodeId].name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Patient Condition (Triage Tag)</label>
+                  <select 
+                    required 
+                    value={patientCondition}
+                    onChange={(e) => setPatientCondition(e.target.value)}
+                    className="w-full bg-white/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2 outline-none focus:ring-2 ring-blue-500 text-gray-900 dark:text-white"
+                  >
+                    <option value="cardiac">Cardiac Arrest (Critical - Requires ALS)</option>
+                    <option value="trauma">Severe Trauma/Accident (Critical - Requires ALS)</option>
+                    <option value="fracture">Bone Fracture (Medium - BLS Preferred)</option>
+                    <option value="minor">Minor Lacerations (Low - BLS Preferred)</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Destination Hospital</label>
@@ -284,16 +406,53 @@ const HospitalDashboard = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Assign Ambulance</label>
-                  <select name="ambulance" className="w-full bg-white/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2 outline-none focus:ring-2 ring-blue-500 text-gray-900 dark:text-white">
-                    {ambulances.filter(a => a.status === 'available').map(amb => (
-                      <option key={amb.id} value={amb.id}>{amb.id} ({amb.driver})</option>
-                    ))}
-                  </select>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Recommended Ambulance (Ranked by Score)</label>
+                  <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar p-1">
+                    {rankedAmbulances.map(amb => {
+                      const isSelected = selectedAmbulanceId === amb.id;
+                      const isUnavailable = amb.status === 'maintenance';
+                      return (
+                        <div 
+                          key={amb.id} 
+                          onClick={() => {
+                            if (!isUnavailable) setSelectedAmbulanceId(amb.id);
+                          }}
+                          className={`p-3 rounded-xl border transition-all flex flex-col ${
+                            isUnavailable ? 'opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-800/20 border-gray-200 dark:border-gray-800' :
+                            isSelected 
+                              ? 'bg-blue-500/10 border-blue-500 shadow-md ring-2 ring-blue-500/50 cursor-pointer' 
+                              : 'bg-white/50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 hover:border-blue-400 cursor-pointer'
+                          }`}
+                        >
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center space-x-2">
+                              <span className="font-bold text-gray-900 dark:text-white text-sm">{amb.id}</span>
+                              <span className="text-xs text-gray-500">({amb.driver})</span>
+                              <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${
+                                amb.level === 'ALS' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                              }`}>{amb.level}</span>
+                            </div>
+                            <span className={`text-xs font-black px-2 py-0.5 rounded-full ${
+                              amb.score >= 80 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                              amb.score >= 50 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                              'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                            }`}>
+                              Score: {amb.score}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-gray-400 mt-1 flex flex-wrap gap-x-2">
+                            {amb.deductions.map((ded, idx) => (
+                              <span key={idx} className="after:content-['|'] last:after:content-none after:ml-1">{ded}</span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
                 <div className="pt-4 flex justify-end space-x-3">
                   <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded-xl font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">Cancel</button>
-                  <button type="submit" className="px-6 py-2 rounded-xl font-bold bg-blue-500 hover:bg-blue-600 text-white shadow-lg transition-colors">Dispatch</button>
+                  <button type="submit" disabled={!selectedAmbulanceId} className="px-6 py-2 rounded-xl font-bold bg-blue-500 hover:bg-blue-600 text-white shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Dispatch</button>
                 </div>
               </form>
             </div>

@@ -43,5 +43,14 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
     def confirm(self, request, pk=None):
         report = self.get_object()
         report.confirmation_count += 1
+        
+        # Auto-escalation to VERIFIED when count >= 5
+        if report.confirmation_count >= 5 and report.status == IncidentReport.Status.REPORTED:
+            report.status = IncidentReport.Status.VERIFIED
+            
         report.save()
-        return Response({'status': 'confirmed', 'count': report.confirmation_count})
+        return Response({
+            'status': 'confirmed', 
+            'count': report.confirmation_count,
+            'report_status': report.status
+        })

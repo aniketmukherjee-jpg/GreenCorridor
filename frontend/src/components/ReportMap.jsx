@@ -4,8 +4,8 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import axios from 'axios';
 import { USE_MOCK_DATA } from '../config';
-import { mockReports } from '../mock/reports';
 import { useToast } from '../context/ToastContext';
+import { useSimulation } from '../context/SimulationContext';
 import IncidentWizard from './IncidentWizard';
 
 // Fix for default leaflet icons
@@ -19,33 +19,23 @@ L.Icon.Default.mergeOptions({
 const CATEGORIES = ['All', 'pothole', 'accident', 'waterlogging', 'road_closure', 'heavy_traffic'];
 
 const ReportMap = () => {
-  const [reports, setReports] = useState([]);
+  const { reports, confirmReport, addReport } = useSimulation();
   const [filter, setFilter] = useState('All');
   const [isSimulating, setIsSimulating] = useState(false);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
-  const { success } = useToast();
 
   useEffect(() => {
     if (USE_MOCK_DATA) {
-      setReports(mockReports);
-      
       // Simulate live incoming reports for demo
       const interval = setInterval(() => {
         setIsSimulating(prev => !prev);
       }, 5000);
       return () => clearInterval(interval);
-    } else {
-      axios.get('http://127.0.0.1:8000/api/reports/')
-        .then(response => setReports(response.data))
-        .catch(error => console.error("Error fetching reports:", error));
     }
   }, []);
 
   const handleConfirm = (id) => {
-    success(`Report #${id} confirmed. Thank you!`);
-    setReports(prev => prev.map(r => 
-      r.id === id ? { ...r, confirmation_count: (r.confirmation_count || 0) + 1 } : r
-    ));
+    confirmReport(id);
   };
 
   const filteredReports = filter === 'All' 
@@ -139,7 +129,7 @@ const ReportMap = () => {
       {isWizardOpen && (
         <IncidentWizard 
           onClose={() => setIsWizardOpen(false)} 
-          onComplete={(newReport) => setReports([newReport, ...reports])} 
+          onComplete={(newReport) => addReport(newReport)} 
         />
       )}
     </div>

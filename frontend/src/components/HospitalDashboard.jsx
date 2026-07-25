@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { USE_MOCK_DATA } from '../config';
+import { USE_MOCK_DATA, BACKEND_URL } from '../config';
 import { mockMissions } from '../mock/missions';
 import { useToast } from '../context/ToastContext';
 import { useSimulation, NODES } from '../context/SimulationContext';
@@ -154,7 +154,7 @@ const HospitalDashboard = () => {
     if (USE_MOCK_DATA) {
       setMissions(mockMissions);
     } else {
-      axios.get('http://127.0.0.1:8000/api/missions/')
+      axios.get(`${BACKEND_URL}/api/missions/`)
         .then(response => setMissions(response.data))
         .catch(err => console.error(err));
     }

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useToast } from './ToastContext';
-import { USE_MOCK_DATA } from '../config';
+import { USE_MOCK_DATA, BACKEND_URL } from '../config';
 import { mockReports } from '../mock/reports';
 
 // --- Road Graph Network Representation ---
@@ -229,7 +229,7 @@ export const SimulationProvider = ({ children }) => {
     if (USE_MOCK_DATA) {
       setReports(mockReports);
     } else {
-      fetch('http://127.0.0.1:8000/api/reports/')
+      fetch(`${BACKEND_URL}/api/reports/`)
         .then(res => res.json())
         .then(data => setReports(data))
         .catch(err => console.error("Error loading API reports:", err));
@@ -348,7 +348,7 @@ export const SimulationProvider = ({ children }) => {
     });
 
     if (!USE_MOCK_DATA) {
-      fetch(`http://127.0.0.1:8000/api/reports/${id}/confirm/`, { method: 'POST' })
+      fetch(`${BACKEND_URL}/api/reports/${id}/confirm/`, { method: 'POST' })
         .catch(err => console.error("Error posting confirmation:", err));
     }
   }, [success, addEvent, triggerRerouteForIncident]);

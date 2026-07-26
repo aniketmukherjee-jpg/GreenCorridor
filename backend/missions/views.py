@@ -13,15 +13,18 @@ class HospitalViewSet(viewsets.ReadOnlyModelViewSet):
 class AmbulanceViewSet(viewsets.ModelViewSet):
     queryset = Ambulance.objects.all()
     serializer_class = AmbulanceSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
 class EmergencyMissionViewSet(viewsets.ModelViewSet):
     queryset = EmergencyMission.objects.all().order_by('-created_at')
     serializer_class = EmergencyMissionSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        if self.request.user.is_authenticated:
+            serializer.save(created_by=self.request.user)
+        else:
+            serializer.save()
 
     @action(detail=True, methods=['post'])
     def accept(self, request, pk=None):

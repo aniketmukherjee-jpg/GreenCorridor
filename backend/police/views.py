@@ -8,12 +8,12 @@ from .serializers import PoliceZoneSerializer, PoliceAlertSerializer
 class PoliceZoneViewSet(viewsets.ModelViewSet):
     queryset = PoliceZone.objects.all()
     serializer_class = PoliceZoneSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
 class PoliceAlertViewSet(viewsets.ModelViewSet):
     queryset = PoliceAlert.objects.all().order_by('-sent_at')
     serializer_class = PoliceAlertSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
         queryset = super().get_queryset()

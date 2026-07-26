@@ -39,7 +39,7 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
             
         return queryset
 
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    @action(detail=True, methods=['post'], permission_classes=[permissions.AllowAny])
     def confirm(self, request, pk=None):
         report = self.get_object()
         report.confirmation_count += 1

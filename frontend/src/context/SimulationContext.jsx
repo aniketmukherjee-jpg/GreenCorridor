@@ -299,7 +299,7 @@ export const SimulationProvider = ({ children }) => {
     if (USE_MOCK_DATA) return;
 
     const interval = setInterval(() => {
-      fetch(`${BACKEND_URL}/api/police-alerts/check_escalations/`, { method: 'POST' })
+      fetch(`${BACKEND_URL}/api/police/alerts/check_escalations/`, { method: 'POST' })
         .then(res => res.json())
         .then(data => {
           if (data.escalated_count > 0) {

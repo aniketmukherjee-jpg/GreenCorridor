@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import ThemeToggle from './ThemeToggle';
-import { useToast } from '../context/ToastContext';
 import { useSimulation } from '../context/SimulationContext';
 
 const Layout = ({ children }) => {
@@ -9,21 +8,34 @@ const Layout = ({ children }) => {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [prevEventCount, setPrevEventCount] = useState(0);
+  const [timeString, setTimeString] = useState('');
+  
   const dropdownRef = useRef(null);
   const notifRef = useRef(null);
   const location = useLocation();
   const { events } = useSimulation();
 
-  // Helper to determine active dashboard properties
+  // Ticking Live Tactical Clock
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      setTimeString(now.toLocaleTimeString('en-US', { hour12: false }) + ' IST');
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Helper to determine active dashboard properties & theme colors
   const getActiveDashboardProps = () => {
     switch (location.pathname) {
-      case '/citizen': return { label: 'Citizen Map', icon: '🗺️', activeClass: 'bg-green-500/10 dark:bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/30 dark:border-green-400/30' };
-      case '/hospital': return { label: 'Hospital', icon: '🏥', activeClass: 'bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/30 dark:border-blue-400/30' };
-      case '/driver': return { label: 'Driver', icon: '🚑', activeClass: 'bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30 dark:border-red-400/30' };
-      case '/police': return { label: 'Police', icon: '🛡️', activeClass: 'bg-purple-500/10 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/30 dark:border-purple-400/30' };
-      case '/analytics': return { label: 'Analytics', icon: '📈', activeClass: 'bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 dark:border-indigo-400/30' };
-      case '/admin': return { label: 'Admin Console', icon: '🔑', activeClass: 'bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 dark:border-emerald-400/30' };
-      default: return { label: 'Dashboards', icon: '⚡', activeClass: 'bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/30 dark:border-blue-400/30' };
+      case '/citizen': return { label: 'Citizen Map', icon: '🗺️', activeClass: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 glow-emerald' };
+      case '/hospital': return { label: 'Hospital Command', icon: '🏥', activeClass: 'bg-blue-500/20 text-blue-400 border-blue-500/40 glow-blue' };
+      case '/driver': return { label: 'Driver Cockpit', icon: '🚑', activeClass: 'bg-red-500/20 text-red-400 border-red-500/40 glow-red' };
+      case '/police': return { label: 'Police Signals', icon: '🛡️', activeClass: 'bg-purple-500/20 text-purple-400 border-purple-500/40 glow-purple' };
+      case '/analytics': return { label: 'Analytics Intel', icon: '📈', activeClass: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/40 glow-blue' };
+      case '/admin': return { label: 'System Admin', icon: '🔑', activeClass: 'bg-teal-500/20 text-teal-400 border-teal-500/40 glow-emerald' };
+      default: return { label: 'Operations Hub', icon: '⚡', activeClass: 'bg-blue-500/20 text-blue-400 border-blue-500/40 glow-blue' };
     }
   };
   const { label: activeLabel, icon: activeIcon, activeClass: activeStyleClass } = getActiveDashboardProps();
@@ -49,7 +61,6 @@ const Layout = ({ children }) => {
       }
       setPrevEventCount(events.length);
     } else if (events && events.length < prevEventCount) {
-      // Handled if events are cleared
       setPrevEventCount(events.length);
     }
   }, [events, isNotifOpen, prevEventCount]);
@@ -60,142 +71,147 @@ const Layout = ({ children }) => {
   };
 
   return (
-    <div className="min-h-screen relative flex flex-col">
-      {/* Background Layers for Crossfade (Scaled aggressively via inline style to guarantee AI watermark is hidden) */}
-      <div className="fixed inset-0 z-[-1] bg-[url('/light-bg.png')] bg-cover bg-center bg-no-repeat transition-opacity duration-500" style={{ transform: 'scale(1.25)' }}></div>
-      <div className="fixed inset-0 z-[-1] bg-[url('/dark-bg.png')] bg-cover bg-center bg-no-repeat opacity-0 dark:opacity-100 transition-opacity duration-500" style={{ transform: 'scale(1.25)' }}></div>
+    <div className="min-h-screen relative flex flex-col bg-slate-950 text-slate-100 cyber-grid overflow-x-hidden">
+      
+      {/* Dynamic Futuristic Mesh Background Glows */}
+      <div className="fixed inset-0 z-[-1] pointer-events-none overflow-hidden">
+        <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-blue-600/10 blur-[150px] animate-pulse"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] rounded-full bg-emerald-600/10 blur-[160px] animate-pulse" style={{ animationDelay: '2s' }}></div>
+      </div>
 
-      {/* Global Navbar */}
-      <nav className="sticky top-0 z-50 w-full backdrop-blur-3xl bg-white/10 dark:bg-black/20 border-b border-white/30 dark:border-gray-700/40 shadow-[0_8px_32px_rgba(0,0,0,0.1)] transition-colors duration-300">
+      {/* Global Tactical Cyber Navbar */}
+      <nav className="sticky top-0 z-50 w-full backdrop-blur-2xl bg-slate-950/70 border-b border-slate-800/80 shadow-[0_4px_30px_rgba(0,0,0,0.5)] transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20 relative">
             
-            {/* Left side: Logo */}
-            <div className="flex items-center z-10">
-              <Link to="/" className="flex items-center group">
-                <img src="/logoo.png" alt="GreenCorridor Logo" className="h-10 md:h-14 w-auto object-contain drop-shadow-lg group-hover:scale-105 transition-transform duration-300" />
+            {/* Left Brand Identity */}
+            <div className="flex items-center space-x-4 z-10">
+              <Link to="/" className="flex items-center space-x-3 group">
+                <img 
+                  src="/logoo.png" 
+                  alt="GreenCorridor Logo" 
+                  className="h-10 md:h-12 w-auto object-contain drop-shadow-[0_0_12px_rgba(16,185,129,0.4)] group-hover:scale-105 transition-all duration-300" 
+                />
+                <div className="hidden lg:flex flex-col text-left">
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-400 leading-none">GreenCorridor</span>
+                  <span className="text-[9px] font-bold text-slate-400 tracking-wider">Tactical Platform v3.0</span>
+                </div>
               </Link>
             </div>
             
-            {/* Center: Navigation Links */}
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center space-x-2 md:space-x-4 z-20 w-max">
-                {/* Home Button */}
-                <Link 
-                  to="/" 
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all shadow-sm border backdrop-blur-md ${
-                    location.pathname === '/' 
-                      ? 'bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 dark:border-emerald-400/30' 
-                      : 'bg-white/20 dark:bg-black/40 text-gray-700 dark:text-gray-300 border-white/50 dark:border-gray-700/50 hover:bg-white/40 dark:hover:bg-black/20'
+            {/* Center Navigation Portal */}
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center space-x-2 md:space-x-3 z-20">
+              {/* Home Pill */}
+              <Link 
+                to="/" 
+                className={`px-3.5 py-2 rounded-xl text-xs font-extrabold flex items-center space-x-2 transition-all border backdrop-blur-xl ${
+                  location.pathname === '/' 
+                    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 glow-emerald' 
+                    : 'bg-slate-900/60 text-slate-300 border-slate-800 hover:bg-slate-800/80 hover:text-white'
+                }`}
+              >
+                <span>🏠</span>
+                <span className="hidden sm:inline uppercase tracking-widest text-[11px]">Home</span>
+              </Link>
+
+              {/* Viewports Dropdown */}
+              <div className="relative" ref={dropdownRef}>
+                <button 
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)} 
+                  className={`px-3.5 py-2 rounded-xl text-xs font-extrabold flex items-center space-x-2 transition-all border backdrop-blur-xl ${
+                    isDropdownOpen || location.pathname !== '/' 
+                      ? activeStyleClass
+                      : 'bg-slate-900/60 text-slate-300 border-slate-800 hover:bg-slate-800/80 hover:text-white'
                   }`}
                 >
-                  <span>🏠</span>
-                  <span className="hidden sm:inline tracking-wide">Home</span>
-                </Link>
+                  <span>{activeIcon}</span>
+                  <span className="hidden sm:inline uppercase tracking-widest text-[11px]">{activeLabel}</span>
+                  <span className={`text-[9px] transition-transform duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`}>▼</span>
+                </button>
                 
-                {/* Dropdown Menu */}
-                <div className="relative" ref={dropdownRef}>
-                  <button 
-                    onClick={() => setIsDropdownOpen(!isDropdownOpen)} 
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all shadow-sm border backdrop-blur-md ${
-                      isDropdownOpen || location.pathname !== '/' 
-                        ? activeStyleClass
-                        : 'bg-white/20 dark:bg-black/40 text-gray-700 dark:text-gray-300 border-white/50 dark:border-gray-700/50 hover:bg-white/40 dark:hover:bg-black/20'
-                    }`}
-                  >
-                    <span>{activeIcon}</span>
-                    <span className="hidden sm:inline tracking-wide">{activeLabel}</span>
-                    <span className={`text-[9px] transition-transform duration-300 ml-1 ${isDropdownOpen ? 'rotate-180' : ''}`}>▼</span>
-                  </button>
-                  
-                  {/* Dropdown Content */}
-                  <div className={`absolute top-full left-0 mt-3 w-64 backdrop-blur-3xl bg-white/90 dark:bg-gray-900/90 border border-white/80 dark:border-gray-700/80 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.6)] overflow-hidden transition-all duration-300 origin-top-left ${isDropdownOpen ? 'opacity-100 scale-100 pointer-events-auto translate-y-0' : 'opacity-0 scale-95 pointer-events-none -translate-y-2'}`}>
-                    <div className="p-2 space-y-1">
-                      <Link to="/citizen" onClick={() => setIsDropdownOpen(false)} className={`flex items-center space-x-3 p-3 rounded-xl transition-all group ${location.pathname === '/citizen' ? 'bg-green-50 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-black' : 'text-gray-700 dark:text-gray-200 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-green-600 dark:hover:text-green-400 font-bold'}`}>
-                        <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/50 flex items-center justify-center text-xl group-hover:scale-110 group-hover:rotate-3 transition-transform shadow-sm">🗺️</div>
+                {/* Cyber Dropdown Menu */}
+                <div className={`absolute top-full left-0 mt-3 w-72 backdrop-blur-3xl bg-slate-900/95 border border-slate-700/80 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden transition-all duration-300 origin-top-left z-50 ${isDropdownOpen ? 'opacity-100 scale-100 pointer-events-auto translate-y-0' : 'opacity-0 scale-95 pointer-events-none -translate-y-2'}`}>
+                  <div className="p-2 space-y-1">
+                    {[
+                      { to: '/citizen', icon: '🗺️', name: 'Citizen Map', desc: 'Report & track incidents', color: 'hover:bg-emerald-500/10 hover:text-emerald-400 border-emerald-500/20' },
+                      { to: '/hospital', icon: '🏥', name: 'Hospital Dispatch', desc: 'Fleet matching & triage', color: 'hover:bg-blue-500/10 hover:text-blue-400 border-blue-500/20' },
+                      { to: '/driver', icon: '🚑', name: 'Driver Console', desc: 'A* Navigation & telemetry', color: 'hover:bg-red-500/10 hover:text-red-400 border-red-500/20' },
+                      { to: '/police', icon: '🛡️', name: 'Traffic Police', desc: 'Corridor preemption', color: 'hover:bg-purple-500/10 hover:text-purple-400 border-purple-500/20' },
+                      { to: '/analytics', icon: '📈', name: 'Analytics Intel', desc: 'Response metrics & charts', color: 'hover:bg-indigo-500/10 hover:text-indigo-400 border-indigo-500/20' },
+                      { to: '/admin', icon: '🔑', name: 'Admin Console', desc: 'System governance', color: 'hover:bg-teal-500/10 hover:text-teal-400 border-teal-500/20' }
+                    ].map((item, idx) => (
+                      <Link 
+                        key={idx}
+                        to={item.to} 
+                        onClick={() => setIsDropdownOpen(false)} 
+                        className={`flex items-center space-x-3 p-3 rounded-xl transition-all border border-transparent ${item.color} group`}
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                          {item.icon}
+                        </div>
                         <div>
-                          <div className="leading-none mb-1">Citizen Map</div>
-                          <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest opacity-80">Report Incidents</div>
+                          <div className="font-bold text-xs text-slate-100 group-hover:text-white leading-tight mb-0.5">{item.name}</div>
+                          <div className="text-[10px] text-slate-400 font-medium">{item.desc}</div>
                         </div>
                       </Link>
-                      
-                      <Link to="/hospital" onClick={() => setIsDropdownOpen(false)} className={`flex items-center space-x-3 p-3 rounded-xl transition-all group ${location.pathname === '/hospital' ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-black' : 'text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 font-bold'}`}>
-                        <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-xl group-hover:scale-110 group-hover:rotate-3 transition-transform shadow-sm">🏥</div>
-                        <div>
-                          <div className="leading-none mb-1">Hospital</div>
-                          <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest opacity-80">Command Center</div>
-                        </div>
-                      </Link>
-
-                      <Link to="/driver" onClick={() => setIsDropdownOpen(false)} className={`flex items-center space-x-3 p-3 rounded-xl transition-all group ${location.pathname === '/driver' ? 'bg-red-50 dark:bg-red-900/40 text-red-700 dark:text-red-300 font-black' : 'text-gray-700 dark:text-gray-200 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 font-bold'}`}>
-                        <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/50 flex items-center justify-center text-xl group-hover:scale-110 group-hover:rotate-3 transition-transform shadow-sm">🚑</div>
-                        <div>
-                          <div className="leading-none mb-1">Driver</div>
-                          <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest opacity-80">Ambulance View</div>
-                        </div>
-                      </Link>
-
-                      <Link to="/police" onClick={() => setIsDropdownOpen(false)} className={`flex items-center space-x-3 p-3 rounded-xl transition-all group ${location.pathname === '/police' ? 'bg-purple-50 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 font-black' : 'text-gray-700 dark:text-gray-200 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 dark:hover:text-purple-400 font-bold'}`}>
-                        <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center text-xl group-hover:scale-110 group-hover:rotate-3 transition-transform shadow-sm">🛡️</div>
-                        <div>
-                          <div className="leading-none mb-1">Police</div>
-                          <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest opacity-80">Traffic Command</div>
-                        </div>
-                      </Link>
-
-                      <Link to="/analytics" onClick={() => setIsDropdownOpen(false)} className={`flex items-center space-x-3 p-3 rounded-xl transition-all group ${location.pathname === '/analytics' ? 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-black' : 'text-gray-700 dark:text-gray-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:text-indigo-600 dark:hover:text-indigo-400 font-bold'}`}>
-                        <div className="w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-xl group-hover:scale-110 group-hover:-rotate-3 transition-transform shadow-sm">📈</div>
-                        <div>
-                          <div className="leading-none mb-1">Analytics</div>
-                          <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest opacity-80">Insights & Trends</div>
-                        </div>
-                      </Link>
-                    </div>
+                    ))}
                   </div>
                 </div>
               </div>
+            </div>
 
-            {/* Right side navigation & toggle */}
-            <div className="flex items-center space-x-3 sm:space-x-6">
+            {/* Right Side Status Indicator & Notification Drawer */}
+            <div className="flex items-center space-x-3 z-10">
               
+              {/* Tactical Clock Pill */}
+              <div className="hidden md:flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-[11px] font-mono text-emerald-400 font-bold shadow-inner">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                <span>{timeString}</span>
+              </div>
+
               {/* Notification Bell */}
               <div className="relative" ref={notifRef}>
                 <button
                   onClick={handleOpenNotif}
-                  className="p-2.5 rounded-xl bg-white/20 dark:bg-black/40 border border-white/50 dark:border-gray-700/50 hover:bg-white/40 dark:hover:bg-black/20 text-gray-700 dark:text-gray-300 transition-all shadow-sm relative focus:outline-none"
+                  className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 hover:bg-slate-800 text-slate-200 transition-all relative focus:outline-none"
                 >
-                  <span className="text-lg">🔔</span>
+                  <span className="text-base">🔔</span>
                   {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center animate-bounce shadow-lg border border-white dark:border-gray-900">
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center animate-bounce shadow-[0_0_10px_rgba(239,68,68,0.8)] border border-slate-950">
                       {unreadCount}
                     </span>
                   )}
                 </button>
 
-                {/* Notifications Dropdown */}
-                <div className={`absolute top-full right-0 mt-3 w-80 backdrop-blur-3xl bg-white/95 dark:bg-gray-900/95 border border-white/80 dark:border-gray-700/80 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.6)] overflow-hidden transition-all duration-300 origin-top-right z-50 ${isNotifOpen ? 'opacity-100 scale-100 pointer-events-auto translate-y-0' : 'opacity-0 scale-95 pointer-events-none -translate-y-2'}`}>
-                  <div className="p-4 border-b border-gray-200/50 dark:border-gray-700/50 flex justify-between items-center bg-gray-50/55 dark:bg-gray-800/30">
-                    <h3 className="font-black text-gray-900 dark:text-white text-sm">Notifications</h3>
+                {/* 3D Cyber Notifications Panel */}
+                <div className={`absolute top-full right-0 mt-3 w-88 backdrop-blur-3xl bg-slate-900/95 border border-slate-700/80 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.9)] overflow-hidden transition-all duration-300 origin-top-right z-50 ${isNotifOpen ? 'opacity-100 scale-100 pointer-events-auto translate-y-0' : 'opacity-0 scale-95 pointer-events-none -translate-y-2'}`}>
+                  <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-950/60">
+                    <div className="flex items-center space-x-2">
+                      <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                      <h3 className="font-extrabold text-white text-xs uppercase tracking-widest">Tactical Telemetry Feed</h3>
+                    </div>
                     {events && events.length > 0 && (
-                      <span className="text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full">
-                        {events.length} total
+                      <span className="text-[10px] font-black bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-md">
+                        {events.length} LOGS
                       </span>
                     )}
                   </div>
-                  <div className="max-h-80 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800 custom-scrollbar">
+                  
+                  <div className="max-h-80 overflow-y-auto divide-y divide-slate-800/60 custom-scrollbar">
                     {!events || events.length === 0 ? (
-                      <div className="p-6 text-center text-gray-500 text-sm font-medium">
-                        No system notifications
+                      <div className="p-8 text-center text-slate-500 text-xs font-semibold">
+                        No active system warnings recorded
                       </div>
                     ) : (
                       events.map(event => (
-                        <div key={event.id} className="p-3.5 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors flex items-start space-x-3 text-left">
-                          <span className="text-lg mt-0.5">
-                            {event.title.includes('Cleared') ? '🟢' : event.title.includes('Started') ? '🚨' : event.title.includes('Completed') ? '✅' : 'ℹ️'}
+                        <div key={event.id} className="p-4 hover:bg-slate-800/40 transition-colors flex items-start space-x-3 text-left">
+                          <span className="text-xl mt-0.5">
+                            {event.title.includes('Cleared') ? '🟢' : event.title.includes('Started') ? '🚨' : event.title.includes('Completed') ? '✅' : '⚠️'}
                           </span>
                           <div className="flex-1 min-w-0">
-                            <h4 className="font-bold text-gray-900 dark:text-white text-xs leading-tight mb-0.5">{event.title}</h4>
-                            <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-snug">{event.description}</p>
-                            <span className="text-[9px] text-gray-400 font-medium block mt-1">
+                            <h4 className="font-bold text-slate-100 text-xs leading-tight mb-1">{event.title}</h4>
+                            <p className="text-[11px] text-slate-400 leading-snug">{event.description}</p>
+                            <span className="text-[9px] text-slate-500 font-mono block mt-1.5">
                               {new Date(event.time).toLocaleTimeString()}
                             </span>
                           </div>
@@ -208,6 +224,7 @@ const Layout = ({ children }) => {
 
               <ThemeToggle />
             </div>
+
           </div>
         </div>
       </nav>

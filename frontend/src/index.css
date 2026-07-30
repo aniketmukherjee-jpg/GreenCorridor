@@ -6,7 +6,10 @@
 @theme {
   --animate-radar: radar 2s linear infinite;
   --animate-dash: dash 5s linear infinite;
-  
+  --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-scanline: scanline 8s linear infinite;
+  --animate-float: float 6s ease-in-out infinite;
+
   @keyframes radar {
     0% { transform: scale(0.5); opacity: 0; }
     50% { opacity: 0.5; }
@@ -15,8 +18,92 @@
   @keyframes dash {
     to { stroke-dashoffset: -100; }
   }
+  @keyframes scanline {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(1000%); }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-10px) rotate(1deg); }
+  }
 }
 
+/* 3D Perspective & Depth System */
+.perspective-1000 {
+  perspective: 1000px;
+}
+.perspective-1200 {
+  perspective: 1200px;
+}
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+/* 3D Interactive Card Hover Utilities */
+.card-3d {
+  transition: transform 0.5s cubic-bezier(0.23, 1, 0.32, 1), box-shadow 0.5s ease;
+  transform-style: preserve-3d;
+}
+.card-3d:hover {
+  transform: translateY(-8px) rotateX(4deg) rotateY(-2deg) scale(1.01);
+}
+.translate-z-10 {
+  transform: translateZ(10px);
+}
+.translate-z-20 {
+  transform: translateZ(20px);
+}
+.translate-z-30 {
+  transform: translateZ(30px);
+}
+
+/* Cybernetic Glows & Holographic Borders */
+.glow-emerald {
+  box-shadow: 0 0 25px rgba(16, 185, 129, 0.35), inset 0 0 15px rgba(16, 185, 129, 0.15);
+}
+.glow-blue {
+  box-shadow: 0 0 25px rgba(59, 130, 246, 0.35), inset 0 0 15px rgba(59, 130, 246, 0.15);
+}
+.glow-red {
+  box-shadow: 0 0 25px rgba(239, 68, 68, 0.35), inset 0 0 15px rgba(239, 68, 68, 0.15);
+}
+.glow-purple {
+  box-shadow: 0 0 25px rgba(168, 85, 247, 0.35), inset 0 0 15px rgba(168, 85, 247, 0.15);
+}
+
+/* Cyber Grid & Scanlines Effect */
+.cyber-grid {
+  background-size: 40px 40px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+}
+.dark .cyber-grid {
+  background-image: 
+    linear-gradient(to right, rgba(59, 130, 246, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(59, 130, 246, 0.07) 1px, transparent 1px);
+}
+
+.scanlines {
+  position: relative;
+  overflow: hidden;
+}
+.scanlines::before {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0; left: 0; bottom: 0; right: 0;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+  background-size: 100% 4px;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0.3;
+}
+
+/* Radar Sweep Effect */
 .radar-sweep {
   position: absolute;
   top: 50%;
@@ -30,4 +117,21 @@
   box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
   animation: radar 2s linear infinite;
   pointer-events: none;
+}
+
+/* Custom Cyber Scrollbars */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.4);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.4);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.7);
 }

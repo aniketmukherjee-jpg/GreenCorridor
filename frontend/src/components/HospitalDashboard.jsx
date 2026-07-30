@@ -7,7 +7,7 @@ import { useSimulation, NODES } from '../context/SimulationContext';
 
 const AICopilot = ({ missions }) => {
   const [messages, setMessages] = useState([
-    { role: 'ai', text: 'AI Dispatcher Copilot online. Monitoring incoming incidents and traffic grid.' }
+    { role: 'ai', text: '🤖 AI Dispatcher Copilot online. Monitoring incoming triage tags & city traffic network.' }
   ]);
   const [isTyping, setIsTyping] = useState(false);
 
@@ -27,25 +27,31 @@ const AICopilot = ({ missions }) => {
   }, [missions.length]);
 
   return (
-    <div className="fixed bottom-6 right-6 w-80 backdrop-blur-xl bg-white/80 dark:bg-gray-900/90 rounded-2xl shadow-[0_16px_40px_rgba(0,0,0,0.2)] border border-white/60 dark:border-gray-700/50 flex flex-col overflow-hidden z-[100] animate-in slide-in-from-bottom-8">
-      <div className="p-4 border-b border-gray-200/50 dark:border-gray-700/50 flex items-center justify-between bg-blue-500/10">
-        <div className="flex items-center space-x-2">
-          <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
-          <h3 className="font-bold text-gray-900 dark:text-white text-sm tracking-wide">AI Copilot</h3>
+    <div className="fixed bottom-6 right-6 w-88 backdrop-blur-3xl bg-slate-900/90 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] border border-blue-500/40 glow-blue flex flex-col overflow-hidden z-[100] animate-in slide-in-from-bottom-8">
+      <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/80">
+        <div className="flex items-center space-x-2.5">
+          <div className="relative flex items-center justify-center">
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-ping absolute"></span>
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+          </div>
+          <h3 className="font-extrabold text-white text-xs uppercase tracking-widest flex items-center gap-1.5">
+            <span>AI Copilot Intel</span>
+          </h3>
         </div>
+        <span className="text-[10px] font-mono text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">v3.2 LOGIC</span>
       </div>
       <div className="p-4 h-64 overflow-y-auto space-y-3 custom-scrollbar flex flex-col justify-end">
         {messages.map((msg, i) => (
           <div key={i} className="animate-in fade-in slide-in-from-bottom-2">
-            <div className="inline-block p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 text-sm font-medium text-gray-800 dark:text-gray-200 shadow-sm">
+            <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-blue-500/30 text-xs font-semibold text-slate-200 leading-relaxed shadow-lg">
               {msg.text}
             </div>
           </div>
         ))}
         {isTyping && (
-          <div className="text-gray-400 text-xs flex items-center space-x-1 animate-pulse p-2">
-            <span>AI is analyzing grid</span>
-            <span className="flex space-x-0.5"><span className="animate-bounce">.</span><span className="animate-bounce delay-75">.</span><span className="animate-bounce delay-150">.</span></span>
+          <div className="text-blue-400 text-[11px] font-mono flex items-center space-x-2 p-2 bg-slate-950/40 rounded-xl">
+            <span className="animate-spin">🌀</span>
+            <span>AI analyzing traffic nodes...</span>
           </div>
         )}
       </div>
@@ -53,7 +59,7 @@ const AICopilot = ({ missions }) => {
   );
 };
 
-// Simple list of ambulances with base mock locations for dispatch scoring
+// Base mock ambulances for dispatch scoring
 const extendedMockAmbulances = [
   { id: "AMB-117", plate: "KA-05-CD-1178", status: "available", level: "BLS", driver: "S. Iyer", locationNode: "MG_ROAD" },
   { id: "AMB-088", plate: "KA-03-EF-0882", status: "available", level: "ALS", driver: "A. Rao", locationNode: "CANTONMENT" },
@@ -112,7 +118,7 @@ const calculateAmbulanceScore = (amb, pickupNodeId, condition) => {
   } else if (amb.status === 'on_mission' || amb.status === 'dispatched') {
     score -= 40;
     deductions.push('Status: -40 (Currently Active)');
-  } else { // maintenance
+  } else { 
     score -= 90;
     deductions.push('Status: -90 (In Maintenance)');
   }
@@ -129,7 +135,7 @@ const HospitalDashboard = () => {
   const [ambulances, setAmbulances] = useState(extendedMockAmbulances);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedMission, setSelectedMission] = useState(null);
-  const { success, error } = useToast();
+  const { success } = useToast();
   const { activeMissions, startMission } = useSimulation();
 
   // Form States for Score Ranker
@@ -143,7 +149,6 @@ const HospitalDashboard = () => {
     return { ...amb, ...evalResult };
   }).sort((a, b) => b.score - a.score);
 
-  // Set default selected ambulance on modal open or node change
   useEffect(() => {
     if (rankedAmbulances.length > 0) {
       setSelectedAmbulanceId(rankedAmbulances[0].id);
@@ -177,81 +182,86 @@ const HospitalDashboard = () => {
       created_at: new Date().toISOString()
     };
     
-    // Update local ambulance status to dispatched
     setAmbulances(prev => prev.map(a => 
       a.id === selectedAmbulanceId ? { ...a, status: 'on_mission' } : a
     ));
 
-    // Call startMission in global context
     const routeId = pickupNode === 'CANTONMENT' ? 'route2' : 'route1';
     startMission(newMission.id, routeId, newMission.priority === 'CRITICAL' ? '#ef4444' : '#3b82f6');
 
     setMissions([newMission, ...missions]);
     setIsModalOpen(false);
-    success(`New emergency mission dispatched to ${selectedAmb ? selectedAmb.driver : 'Ambulance'}.`);
+    success(`Emergency unit ${selectedAmb ? selectedAmb.id : ''} dispatched via A* optimal route.`);
   };
 
   const activeCount = missions.filter(m => m.status === 'IN_PROGRESS' || m.status === 'PENDING').length;
   const availableAmbs = ambulances.filter(a => a.status === 'available').length;
-  const completedMissions = missions.filter(m => m.status === 'COMPLETED');
-  const avgTime = completedMissions.length > 0 ? "11m 30s" : "--"; // Simplified mock logic
 
   return (
     <div className="w-full p-4 md:p-8 relative">
       <div className="max-w-7xl mx-auto">
+        
+        {/* Top Command Bar */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
-            <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Hospital Dispatch</h1>
-            <p className="text-gray-600 dark:text-gray-400 font-medium mt-1">Manage emergency missions and ambulances</p>
+            <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight flex items-center gap-3">
+              <span>Hospital Dispatch</span>
+              <span className="text-xs font-mono bg-blue-500/20 text-blue-400 border border-blue-500/30 px-3 py-1 rounded-full uppercase tracking-widest">
+                Fleet Hub
+              </span>
+            </h1>
+            <p className="text-slate-400 font-semibold text-sm mt-1">Manage emergency vehicle allocation and ICU capacity</p>
           </div>
+          
           <button 
             onClick={() => setIsModalOpen(true)}
-            className="backdrop-blur-md bg-blue-500/90 border border-t-blue-400 border-b-blue-700 shadow-[0_8px_32px_rgba(59,130,246,0.3)] hover:bg-blue-600 hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(59,130,246,0.5)] active:translate-y-0 active:shadow-none transition-all text-white px-5 py-2.5 rounded-xl font-bold"
+            className="px-6 py-3 rounded-2xl font-black text-sm text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 transition-all shadow-[0_0_25px_rgba(59,130,246,0.4)] hover:scale-105 active:scale-95 flex items-center space-x-2"
           >
-            + New Emergency Mission
+            <span>+ DISPATCH EMERGENCY MISSION</span>
           </button>
         </div>
 
         {/* Live Computed KPIs */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="backdrop-blur-xl bg-white/70 dark:bg-gray-900/70 p-6 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.05)] border border-white/60 dark:border-gray-700/50 hover:-translate-y-1 transition-transform duration-300">
-            <h3 className="text-gray-500 dark:text-gray-400 text-sm font-bold uppercase tracking-widest mb-2">Active Missions</h3>
-            <p className="text-5xl font-black text-blue-600 dark:text-blue-400 drop-shadow-sm">{activeCount}</p>
-          </div>
-          <div className="backdrop-blur-xl bg-white/70 dark:bg-gray-900/70 p-6 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.05)] border border-white/60 dark:border-gray-700/50 hover:-translate-y-1 transition-transform duration-300">
-            <h3 className="text-gray-500 dark:text-gray-400 text-sm font-bold uppercase tracking-widest mb-2">Available Ambulances</h3>
-            <p className="text-5xl font-black text-green-600 dark:text-green-400 drop-shadow-sm">{availableAmbs}</p>
-          </div>
-          <div className="backdrop-blur-xl bg-white/70 dark:bg-gray-900/70 p-6 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.05)] border border-white/60 dark:border-gray-700/50 hover:-translate-y-1 transition-transform duration-300">
-            <h3 className="text-gray-500 dark:text-gray-400 text-sm font-bold uppercase tracking-widest mb-2">Avg Response Time</h3>
-            <p className="text-5xl font-black text-purple-600 dark:text-purple-400 drop-shadow-sm">{avgTime}</p>
-          </div>
+          {[
+            { label: 'Active Dispatches', val: activeCount, color: 'text-blue-400', glow: 'glow-blue border-blue-500/30' },
+            { label: 'Available Fleet Units', val: availableAmbs, color: 'text-emerald-400', glow: 'glow-emerald border-emerald-500/30' },
+            { label: 'Avg Response Time', val: '11m 30s', color: 'text-purple-400', glow: 'glow-purple border-purple-500/30' }
+          ].map((kpi, idx) => (
+            <div key={idx} className={`backdrop-blur-2xl bg-slate-900/60 p-6 rounded-3xl border shadow-xl card-3d ${kpi.glow}`}>
+              <h3 className="text-slate-400 text-xs font-extrabold uppercase tracking-widest mb-2">{kpi.label}</h3>
+              <p className={`text-5xl font-black ${kpi.color} tracking-tight`}>{kpi.val}</p>
+            </div>
+          ))}
         </div>
 
         {/* Resource Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          
           {/* Bed Availability */}
-          <div className="backdrop-blur-xl bg-white/70 dark:bg-gray-900/70 rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.05)] border border-white/60 dark:border-gray-700/50 overflow-hidden animate-in fade-in slide-in-from-bottom-4">
-            <div className="p-6 border-b border-gray-200/50 dark:border-gray-700/50">
-              <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center">
-                <span className="mr-2">🛏️</span> Bed Availability
+          <div className="backdrop-blur-3xl bg-slate-900/60 rounded-3xl shadow-2xl border border-slate-800 overflow-hidden">
+            <div className="p-6 border-b border-slate-800/80 bg-slate-950/60 flex items-center justify-between">
+              <h2 className="text-lg font-black text-white flex items-center gap-2">
+                <span>🛏️</span> ICU & Emergency Beds
               </h2>
+              <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">LIVE OCCUPANCY</span>
             </div>
+            
             <div className="p-6 grid grid-cols-2 gap-4">
               {[
-                { type: 'ICU (Trauma)', total: 12, occupied: 10, color: 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' },
-                { type: 'Emergency', total: 24, occupied: 18, color: 'bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.5)]' },
-                { type: 'General', total: 100, occupied: 65, color: 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' },
-                { type: 'Surgery', total: 8, occupied: 2, color: 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]' }
+                { type: 'ICU (Trauma)', total: 12, occupied: 10, color: 'bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.8)]' },
+                { type: 'Emergency', total: 24, occupied: 18, color: 'bg-orange-500 shadow-[0_0_12px_rgba(249,115,22,0.8)]' },
+                { type: 'General', total: 100, occupied: 65, color: 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)]' },
+                { type: 'Surgery', total: 8, occupied: 2, color: 'bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.8)]' }
               ].map(bed => (
-                <div key={bed.type} className="bg-white/50 dark:bg-gray-800/50 p-4 rounded-2xl border border-gray-200 dark:border-gray-700 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 group">
+                <div key={bed.type} className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 hover:border-slate-700 transition-all card-3d">
                   <div className="flex justify-between items-center mb-2">
-                    <span className="font-bold text-gray-800 dark:text-white text-sm">{bed.type}</span>
-                    <span className="text-xs font-black text-gray-500">{bed.occupied}/{bed.total}</span>
+                    <span className="font-bold text-slate-200 text-xs">{bed.type}</span>
+                    <span className="text-[11px] font-mono font-bold text-slate-400">{bed.occupied}/{bed.total}</span>
                   </div>
-                  <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
                     <div 
-                      className={`h-full rounded-full ${bed.color} transition-all duration-1000 ease-out`}
+                      className={`h-full rounded-full ${bed.color} transition-all duration-1000`}
                       style={{ width: `${(bed.occupied / bed.total) * 100}%` }}
                     ></div>
                   </div>
@@ -261,30 +271,33 @@ const HospitalDashboard = () => {
           </div>
 
           {/* Ambulance Fleet Status */}
-          <div className="backdrop-blur-xl bg-white/70 dark:bg-gray-900/70 rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.05)] border border-white/60 dark:border-gray-700/50 overflow-hidden animate-in fade-in slide-in-from-bottom-4 delay-100">
-            <div className="p-6 border-b border-gray-200/50 dark:border-gray-700/50">
-              <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center">
-                <span className="mr-2">🚑</span> Fleet Status
+          <div className="backdrop-blur-3xl bg-slate-900/60 rounded-3xl shadow-2xl border border-slate-800 overflow-hidden">
+            <div className="p-6 border-b border-slate-800/80 bg-slate-950/60 flex items-center justify-between">
+              <h2 className="text-lg font-black text-white flex items-center gap-2">
+                <span>🚑</span> Fleet Telemetry
               </h2>
+              <span className="text-[10px] font-mono text-blue-400 bg-blue-500/10 px-2.5 py-1 rounded-full border border-blue-500/20">{ambulances.length} UNITS TRACKED</span>
             </div>
-            <div className="p-6 space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar">
+            
+            <div className="p-6 space-y-3 max-h-[290px] overflow-y-auto custom-scrollbar">
               {ambulances.map(amb => (
-                <div key={amb.id} className="flex items-center justify-between bg-white/50 dark:bg-gray-800/50 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:-translate-x-1 hover:shadow-md transition-all">
+                <div key={amb.id} className="flex items-center justify-between bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800 hover:border-slate-700 transition-all">
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center text-lg shadow-inner">
+                    <div className="w-10 h-10 bg-slate-900 rounded-xl border border-slate-800 flex items-center justify-center text-lg">
                       🚑
                     </div>
                     <div>
-                      <div className="font-bold text-gray-800 dark:text-white text-sm">{amb.id}</div>
-                      <div className="text-xs text-gray-500">{amb.driver}</div>
+                      <div className="font-extrabold text-white text-xs">{amb.id} ({amb.level})</div>
+                      <div className="text-[11px] text-slate-400 font-semibold">{amb.driver} • Node: {amb.locationNode}</div>
                     </div>
                   </div>
+                  
                   <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                    amb.status === 'available' ? 'bg-green-100 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800/50' :
-                    amb.status === 'dispatched' ? 'bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50' :
-                    'bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50'
+                    amb.status === 'available' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 glow-emerald' :
+                    amb.status === 'on_mission' ? 'bg-red-500/20 text-red-400 border border-red-500/40 glow-red' :
+                    'bg-slate-800 text-slate-400 border border-slate-700'
                   }`}>
-                    {amb.status}
+                    {amb.status.replace('_', ' ')}
                   </span>
                 </div>
               ))}
@@ -293,60 +306,61 @@ const HospitalDashboard = () => {
         </div>
 
         {/* Missions Table */}
-        <div className="backdrop-blur-xl bg-white/70 dark:bg-gray-900/70 rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.05)] border border-white/60 dark:border-gray-700/50 overflow-hidden">
-          <div className="p-6 border-b border-gray-200/50 dark:border-gray-700/50">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Recent Missions</h2>
+        <div className="backdrop-blur-3xl bg-slate-900/60 rounded-3xl shadow-2xl border border-slate-800 overflow-hidden">
+          <div className="p-6 border-b border-slate-800 bg-slate-950/60 flex justify-between items-center">
+            <h2 className="text-xl font-black text-white">Active & Recent Missions</h2>
+            <span className="text-xs font-mono text-slate-400">{missions.length} Total Logs</span>
           </div>
+          
           <div className="p-0 overflow-x-auto">
             {missions.length === 0 ? (
-              <div className="p-16 text-center">
-                <div className="text-6xl mb-4 opacity-50">📝</div>
-                <h3 className="text-xl font-bold text-gray-700 dark:text-gray-200">No active missions</h3>
-                <p className="text-gray-500">Create a new emergency mission to get started.</p>
+              <div className="p-16 text-center text-slate-500">
+                <div className="text-5xl mb-4">📝</div>
+                <h3 className="text-lg font-bold text-slate-300">No active missions</h3>
               </div>
             ) : (
-              <table className="w-full text-left">
-                <thead className="bg-gray-50/50 dark:bg-gray-800/50 border-b border-gray-200/50 dark:border-gray-700/50">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-slate-950/80 border-b border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-400">
                   <tr>
-                    <th className="p-5 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">ID</th>
-                    <th className="p-5 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Priority</th>
-                    <th className="p-5 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Status</th>
-                    <th className="p-5 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Pickup</th>
-                    <th className="p-5 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Actions</th>
+                    <th className="p-5">Mission ID</th>
+                    <th className="p-5">Priority</th>
+                    <th className="p-5">Status</th>
+                    <th className="p-5">Pickup Location</th>
+                    <th className="p-5">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200/50 dark:divide-gray-700/50">
+                <tbody className="divide-y divide-slate-800/60 text-xs font-semibold">
                   {missions.map(mission => (
                     <tr 
                       key={mission.id} 
                       onClick={() => setSelectedMission(mission)}
-                      className="hover:bg-white/50 dark:hover:bg-gray-800/50 transition-colors duration-200 cursor-pointer animate-in fade-in slide-in-from-left-4"
+                      className="hover:bg-slate-800/40 transition-colors cursor-pointer"
                     >
-                      <td className="p-5 font-mono text-sm font-bold text-gray-600 dark:text-gray-300">#{mission.id}</td>
+                      <td className="p-5 font-mono text-slate-200 font-bold">#{mission.id}</td>
                       <td className="p-5">
-                        <span className={`px-3 py-1 rounded-full text-[10px] uppercase font-black shadow-sm tracking-wider ${
-                          mission.priority === 'CRITICAL' ? 'bg-red-500/20 text-red-700 dark:text-red-400 border border-red-500/30' :
-                          mission.priority === 'HIGH' ? 'bg-orange-500/20 text-orange-700 dark:text-orange-400 border border-orange-500/30' :
-                          'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border border-yellow-500/30'
+                        <span className={`px-3 py-1 rounded-full text-[10px] uppercase font-black tracking-wider ${
+                          mission.priority === 'CRITICAL' ? 'bg-red-500/20 text-red-400 border border-red-500/40' :
+                          mission.priority === 'HIGH' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/40' :
+                          'bg-yellow-500/20 text-yellow-400 border border-yellow-500/40'
                         }`}>
                           {mission.priority}
                         </span>
                       </td>
                       <td className="p-5">
-                        <span className={`flex items-center space-x-1.5 px-3 py-1 rounded-full text-[10px] uppercase font-black shadow-sm tracking-wider w-max ${
-                          mission.status === 'COMPLETED' ? 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-gray-500/20' :
-                          mission.status === 'IN_PROGRESS' ? 'bg-blue-500/20 text-blue-700 dark:text-blue-400 border border-blue-500/30' :
-                          'bg-purple-500/20 text-purple-700 dark:text-purple-400 border border-purple-500/30'
+                        <span className={`flex items-center space-x-1.5 px-3 py-1 rounded-full text-[10px] uppercase font-black tracking-wider w-max ${
+                          mission.status === 'COMPLETED' ? 'bg-slate-800 text-slate-400 border border-slate-700' :
+                          mission.status === 'IN_PROGRESS' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40' :
+                          'bg-purple-500/20 text-purple-400 border border-purple-500/40'
                         }`}>
-                          {mission.status === 'IN_PROGRESS' && <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>}
+                          {mission.status === 'IN_PROGRESS' && <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-ping"></span>}
                           <span>{mission.status.replace('_', ' ')}</span>
                         </span>
                       </td>
-                      <td className="p-5 text-sm font-medium text-gray-700 dark:text-gray-300 truncate max-w-[200px]">{mission.pickup_location}</td>
+                      <td className="p-5 text-slate-300 truncate max-w-[200px]">{mission.pickup_location}</td>
                       <td className="p-5">
                         <button 
                           onClick={(e) => { e.stopPropagation(); setSelectedMission(mission); }}
-                          className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-bold transition-colors focus-visible:ring-2 ring-emerald-400 rounded px-2"
+                          className="text-blue-400 hover:text-blue-300 font-bold transition-colors"
                         >
                           View Details
                         </button>
@@ -359,33 +373,35 @@ const HospitalDashboard = () => {
           </div>
         </div>
 
-        {/* New Mission Modal */}
+        {/* New Dispatch Modal */}
         {isModalOpen && (
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
-            <div className="relative w-full max-w-md bg-white/90 dark:bg-gray-900/90 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/50 dark:border-gray-700/50 p-6 animate-in zoom-in-95 duration-200">
-              <h2 className="text-2xl font-black mb-4 text-gray-900 dark:text-white">New Dispatch</h2>
+            <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" onClick={() => setIsModalOpen(false)}></div>
+            <div className="relative w-full max-w-lg bg-slate-900/95 backdrop-blur-3xl rounded-3xl shadow-2xl border border-slate-700 p-6 z-10 animate-in zoom-in-95 duration-200">
+              <h2 className="text-2xl font-black mb-4 text-white">Dispatch New Mission</h2>
+              
               <form onSubmit={handleNewMission} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Pickup Intersection (A* Node)</label>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Pickup Intersection (A* Node)</label>
                   <select 
                     required 
                     value={pickupNode}
                     onChange={(e) => setPickupNode(e.target.value)}
-                    className="w-full bg-white/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2 outline-none focus:ring-2 ring-blue-500 text-gray-900 dark:text-white"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-blue-500"
                   >
                     {Object.keys(NODES).filter(n => n !== 'VICTORIA_HOSP').map(nodeId => (
                       <option key={nodeId} value={nodeId}>{NODES[nodeId].name}</option>
                     ))}
                   </select>
                 </div>
+                
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Patient Condition (Triage Tag)</label>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Patient Condition (Triage Tag)</label>
                   <select 
                     required 
                     value={patientCondition}
                     onChange={(e) => setPatientCondition(e.target.value)}
-                    className="w-full bg-white/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2 outline-none focus:ring-2 ring-blue-500 text-gray-900 dark:text-white"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-blue-500"
                   >
                     <option value="cardiac">Cardiac Arrest (Critical - Requires ALS)</option>
                     <option value="trauma">Severe Trauma/Accident (Critical - Requires ALS)</option>
@@ -393,20 +409,23 @@ const HospitalDashboard = () => {
                     <option value="minor">Minor Lacerations (Low - BLS Preferred)</option>
                   </select>
                 </div>
+
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Destination Hospital</label>
-                  <input required name="hospital" type="text" className="w-full bg-white/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2 outline-none focus:ring-2 ring-blue-500 text-gray-900 dark:text-white" defaultValue="Victoria Hospital" />
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Destination Hospital</label>
+                  <input required name="hospital" type="text" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-blue-500" defaultValue="Victoria Hospital" />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Priority</label>
-                  <select name="priority" className="w-full bg-white/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2 outline-none focus:ring-2 ring-blue-500 text-gray-900 dark:text-white">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Priority Level</label>
+                  <select name="priority" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-blue-500">
                     <option value="CRITICAL">CRITICAL</option>
                     <option value="HIGH">HIGH</option>
                     <option value="MEDIUM">MEDIUM</option>
                   </select>
                 </div>
+
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Recommended Ambulance (Ranked by Score)</label>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Recommended Unit (Ranked by Score Engine)</label>
                   <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar p-1">
                     {rankedAmbulances.map(amb => {
                       const isSelected = selectedAmbulanceId === amb.id;
@@ -414,33 +433,29 @@ const HospitalDashboard = () => {
                       return (
                         <div 
                           key={amb.id} 
-                          onClick={() => {
-                            if (!isUnavailable) setSelectedAmbulanceId(amb.id);
-                          }}
+                          onClick={() => { if (!isUnavailable) setSelectedAmbulanceId(amb.id); }}
                           className={`p-3 rounded-xl border transition-all flex flex-col ${
-                            isUnavailable ? 'opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-800/20 border-gray-200 dark:border-gray-800' :
+                            isUnavailable ? 'opacity-40 cursor-not-allowed bg-slate-950 border-slate-900' :
                             isSelected 
-                              ? 'bg-blue-500/10 border-blue-500 shadow-md ring-2 ring-blue-500/50 cursor-pointer' 
-                              : 'bg-white/50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 hover:border-blue-400 cursor-pointer'
+                              ? 'bg-blue-500/20 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.4)] cursor-pointer' 
+                              : 'bg-slate-950/80 border-slate-800 hover:border-slate-700 cursor-pointer'
                           }`}
                         >
                           <div className="flex justify-between items-center">
                             <div className="flex items-center space-x-2">
-                              <span className="font-bold text-gray-900 dark:text-white text-sm">{amb.id}</span>
-                              <span className="text-xs text-gray-500">({amb.driver})</span>
-                              <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${
-                                amb.level === 'ALS' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                              }`}>{amb.level}</span>
+                              <span className="font-extrabold text-white text-xs">{amb.id}</span>
+                              <span className="text-[10px] text-slate-400">({amb.driver})</span>
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded bg-slate-800 text-slate-300">{amb.level}</span>
                             </div>
-                            <span className={`text-xs font-black px-2 py-0.5 rounded-full ${
-                              amb.score >= 80 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                              amb.score >= 50 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                              'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                            <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
+                              amb.score >= 80 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                              amb.score >= 50 ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                              'bg-red-500/20 text-red-400 border border-red-500/30'
                             }`}>
                               Score: {amb.score}
                             </span>
                           </div>
-                          <div className="text-[10px] text-gray-400 mt-1 flex flex-wrap gap-x-2">
+                          <div className="text-[10px] text-slate-400 font-mono mt-1 flex flex-wrap gap-x-2">
                             {amb.deductions.map((ded, idx) => (
                               <span key={idx} className="after:content-['|'] last:after:content-none after:ml-1">{ded}</span>
                             ))}
@@ -450,9 +465,10 @@ const HospitalDashboard = () => {
                     })}
                   </div>
                 </div>
+
                 <div className="pt-4 flex justify-end space-x-3">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded-xl font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">Cancel</button>
-                  <button type="submit" disabled={!selectedAmbulanceId} className="px-6 py-2 rounded-xl font-bold bg-blue-500 hover:bg-blue-600 text-white shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Dispatch</button>
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white">Cancel</button>
+                  <button type="submit" disabled={!selectedAmbulanceId} className="px-6 py-2.5 rounded-xl text-xs font-black bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg disabled:opacity-50">CONFIRM DISPATCH</button>
                 </div>
               </form>
             </div>
@@ -462,29 +478,28 @@ const HospitalDashboard = () => {
         {/* Details Drawer */}
         {selectedMission && (
           <div className="fixed inset-0 z-[9999] flex justify-end">
-            <div className="absolute inset-0 bg-black/20 backdrop-blur-sm transition-opacity" onClick={() => setSelectedMission(null)}></div>
-            <div className="relative w-full max-w-sm h-full bg-white/95 dark:bg-gray-900/95 backdrop-blur-3xl shadow-2xl border-l border-white/50 dark:border-gray-700/50 animate-in slide-in-from-right duration-300 flex flex-col">
-              <div className="p-6 border-b border-gray-200/50 dark:border-gray-700/50 flex justify-between items-center">
-                <h2 className="text-xl font-black text-gray-900 dark:text-white">Mission #{selectedMission.id}</h2>
-                <button onClick={() => setSelectedMission(null)} className="text-gray-400 hover:text-gray-600 dark:hover:text-white font-bold text-xl">&times;</button>
+            <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" onClick={() => setSelectedMission(null)}></div>
+            <div className="relative w-full max-w-sm h-full bg-slate-900 border-l border-slate-800 p-6 flex flex-col z-10 animate-in slide-in-from-right duration-300">
+              <div className="flex justify-between items-center border-b border-slate-800 pb-4 mb-6">
+                <h2 className="text-xl font-black text-white">Mission #{selectedMission.id}</h2>
+                <button onClick={() => setSelectedMission(null)} className="text-slate-400 hover:text-white font-bold text-2xl">&times;</button>
               </div>
-              <div className="p-6 flex-1 overflow-y-auto space-y-6">
+              
+              <div className="space-y-6 flex-1 text-xs font-semibold">
                 <div>
-                  <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Status</h4>
-                  <div className="font-medium text-gray-900 dark:text-white">{selectedMission.status}</div>
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 mb-1">Status</h4>
+                  <div className="text-white font-bold">{selectedMission.status}</div>
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Route</h4>
-                  <div className="font-medium text-gray-900 dark:text-white mb-2"><span className="opacity-50">From:</span> {selectedMission.pickup_location}</div>
-                  <div className="font-medium text-gray-900 dark:text-white"><span className="opacity-50">To:</span> {selectedMission.destination_hospital}</div>
-                </div>
-                <div className="bg-gray-100 dark:bg-gray-800 rounded-xl h-48 flex items-center justify-center border border-gray-200 dark:border-gray-700">
-                  <span className="opacity-50 font-bold">Live Map Tracking</span>
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 mb-1">Route Specs</h4>
+                  <div className="text-slate-200 mb-1"><span className="text-slate-400">Pickup:</span> {selectedMission.pickup_location}</div>
+                  <div className="text-slate-200"><span className="text-slate-400">Destination:</span> {selectedMission.destination_hospital}</div>
                 </div>
               </div>
             </div>
           </div>
         )}
+
       </div>
       <AICopilot missions={activeMissions} />
     </div>

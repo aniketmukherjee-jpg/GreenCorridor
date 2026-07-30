@@ -132,8 +132,7 @@ const Layout = ({ children }) => {
                       { to: '/hospital', icon: '🏥', name: 'Hospital Dispatch', desc: 'Fleet matching & triage', color: 'hover:bg-blue-50 dark:hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-400 border-blue-500/20' },
                       { to: '/driver', icon: '🚑', name: 'Driver Console', desc: 'A* Navigation & telemetry', color: 'hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400 border-red-500/20' },
                       { to: '/police', icon: '🛡️', name: 'Traffic Police', desc: 'Corridor preemption', color: 'hover:bg-purple-50 dark:hover:bg-purple-500/10 hover:text-purple-600 dark:hover:text-purple-400 border-purple-500/20' },
-                      { to: '/analytics', icon: '📈', name: 'Analytics Intel', desc: 'Response metrics & charts', color: 'hover:bg-indigo-50 dark:hover:bg-indigo-500/10 hover:text-indigo-600 dark:hover:text-indigo-400 border-indigo-500/20' },
-                      { to: '/admin', icon: '🔑', name: 'Admin Console', desc: 'System governance', color: 'hover:bg-teal-50 dark:hover:bg-teal-500/10 hover:text-teal-600 dark:hover:text-teal-400 border-teal-500/20' }
+                      { to: '/analytics', icon: '📈', name: 'Analytics Intel', desc: 'Response metrics & charts', color: 'hover:bg-indigo-50 dark:hover:bg-indigo-500/10 hover:text-indigo-600 dark:hover:text-indigo-400 border-indigo-500/20' }
                     ].map((item, idx) => (
                       <Link 
                         key={idx}

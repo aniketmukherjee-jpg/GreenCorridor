@@ -5,6 +5,14 @@ import L from 'leaflet';
 import { USE_MOCK_DATA } from '../config';
 import { useSimulation } from '../context/SimulationContext';
 import IncidentWizard from './IncidentWizard';
+import { 
+  MapPin, 
+  Flame, 
+  ThumbsUp, 
+  Megaphone, 
+  AlertTriangle, 
+  Layers 
+} from 'lucide-react';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -42,13 +50,13 @@ const ReportMap = () => {
   return (
     <div className="h-[calc(100vh-5rem)] w-full relative z-0 bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
       
-      {/* Category Filter Pills */}
+      {/* Top Category Filter Pills Wireframe */}
       <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-[1000] w-11/12 max-w-4xl flex gap-2.5 overflow-x-auto p-2 no-scrollbar">
         {CATEGORIES.map(cat => (
           <button 
             key={cat}
             onClick={() => setFilter(cat)}
-            className={`whitespace-nowrap px-4 py-2 rounded-2xl font-black text-xs transition-all duration-300 backdrop-blur-3xl border shadow-sm ${
+            className={`whitespace-nowrap px-4 py-2.5 rounded-2xl font-black text-xs transition-all duration-300 backdrop-blur-3xl border shadow-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
               !showHeatmap && filter === cat 
                 ? 'bg-emerald-500/20 text-emerald-600 border-emerald-500/40 dark:text-emerald-400 dark:border-emerald-500/50 glow-emerald' 
                 : 'bg-white/80 text-slate-700 border-slate-200 hover:bg-slate-100 dark:bg-slate-900/80 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800 dark:hover:text-white'
@@ -59,17 +67,18 @@ const ReportMap = () => {
         ))}
         <button 
           onClick={() => setShowHeatmap(!showHeatmap)}
-          className={`whitespace-nowrap px-4 py-2 rounded-2xl font-black text-xs transition-all duration-300 backdrop-blur-3xl border shadow-sm ${
+          className={`whitespace-nowrap px-4 py-2.5 rounded-2xl font-black text-xs transition-all duration-300 backdrop-blur-3xl border shadow-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center space-x-1.5 ${
             showHeatmap 
               ? 'bg-red-500/20 text-red-600 border-red-500/40 dark:text-red-400 dark:border-red-500/50 glow-red animate-pulse' 
               : 'bg-white/80 text-slate-700 border-slate-200 hover:bg-slate-100 dark:bg-slate-900/80 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800 dark:hover:text-white'
           }`}
         >
-          {showHeatmap ? '🔥 HIDE HOTSPOTS' : '🔥 SHOW HOTSPOT HEATMAP'}
+          <Flame className="w-4 h-4 text-red-500" />
+          <span>{showHeatmap ? 'HIDE HOTSPOTS' : 'SHOW HOTSPOT HEATMAP'}</span>
         </button>
       </div>
 
-      {/* Map Viewport */}
+      {/* Map Viewport Wireframe */}
       <MapContainer center={[12.9716, 77.5946]} zoom={13} className="h-full w-full z-0">
         <TileLayer
           attribution='&copy; OpenStreetMap'
@@ -98,8 +107,9 @@ const ReportMap = () => {
                 <Popup className="custom-popup">
                   <div className="w-64 -m-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-3xl rounded-2xl border border-slate-200 dark:border-slate-700 p-4 text-slate-900 dark:text-white shadow-2xl transition-colors duration-300">
                     <div className="flex justify-between items-start mb-2">
-                      <span className="font-black text-xs uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                        {report.category ? report.category.replace('_', ' ') : 'Incident'}
+                      <span className="font-black text-xs uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        <span>{report.category ? report.category.replace('_', ' ') : 'Incident'}</span>
                       </span>
                       <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
                         report.severity === 'high' || report.severity === 'HIGH' ? 'bg-red-500/10 text-red-600 border border-red-500/20 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/30' :
@@ -115,12 +125,13 @@ const ReportMap = () => {
                     </p>
 
                     <div className="flex justify-between items-center pt-2 border-t border-slate-200 dark:border-slate-800">
-                      <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400">
-                        👍 {report.confirmation_count || 1} Confirmations
+                      <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                        <ThumbsUp className="w-3 h-3 text-cyan-500" />
+                        <span>{report.confirmation_count || 1} Confirmations</span>
                       </span>
                       <button 
                         onClick={() => handleConfirm(report.id)}
-                        className="px-3 py-1 bg-emerald-500 hover:bg-emerald-400 text-white dark:text-slate-950 text-[10px] font-black rounded-lg transition-all"
+                        className="px-3 py-1 bg-emerald-500 hover:bg-emerald-400 text-white dark:text-slate-950 text-[10px] font-black rounded-lg transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400"
                       >
                         Confirm
                       </button>
@@ -133,13 +144,14 @@ const ReportMap = () => {
         )}
       </MapContainer>
 
-      {/* Floating Incident Reporting Trigger */}
+      {/* Floating Incident Trigger Wireframe */}
       <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-[1000]">
         <button 
           onClick={() => setIsWizardOpen(true)}
-          className="px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest bg-gradient-to-r from-emerald-500 via-teal-400 to-blue-500 text-white dark:text-slate-950 shadow-lg dark:shadow-[0_0_30px_rgba(16,185,129,0.5)] transition-all hover:scale-105 active:scale-95 flex items-center space-x-2"
+          className="px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-500 text-white dark:text-slate-950 shadow-lg dark:shadow-[0_0_30px_rgba(16,185,129,0.5)] transition-all hover:scale-105 active:scale-95 flex items-center space-x-2.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400"
         >
-          <span>📢 REPORT ROAD INCIDENT</span>
+          <Megaphone className="w-4 h-4" />
+          <span>REPORT ROAD INCIDENT</span>
         </button>
       </div>
 

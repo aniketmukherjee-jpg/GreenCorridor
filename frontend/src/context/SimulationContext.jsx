@@ -337,6 +337,29 @@ export const SimulationProvider = ({ children }) => {
     });
   }, []);
 
+  const confirmReport = useCallback((id) => {
+    success(`Report #${id} confirmed. Thank you!`);
+    setReports(prev => {
+      return prev.map(r => {
+        if (r.id === id) {
+          const newCount = (r.confirmation_count || 0) + 1;
+          const updated = { ...r, confirmation_count: newCount };
+          if (newCount >= 5 && (r.status === 'reported' || r.status === 'REPORTED')) {
+            updated.status = 'VERIFIED';
+            addEvent('Incident Verified', `Report #${id} has been crowd-verified (5+ confirmations)`, 'success');
+          }
+          return updated;
+        }
+        return r;
+      });
+    });
+
+    if (!USE_MOCK_DATA) {
+      fetch(`${BACKEND_URL}/api/reports/${id}/confirm/`, { method: 'POST' })
+        .catch(err => console.error("Error posting confirmation:", err));
+    }
+  }, [success, addEvent]);
+
   useEffect(() => {
     if (USE_MOCK_DATA) {
       setReports(mockReports);

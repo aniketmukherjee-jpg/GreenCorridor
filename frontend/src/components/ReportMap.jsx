@@ -6,7 +6,6 @@ import { USE_MOCK_DATA } from '../config';
 import { useSimulation } from '../context/SimulationContext';
 import IncidentWizard from './IncidentWizard';
 
-// Fix for default leaflet icons
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -41,18 +40,18 @@ const ReportMap = () => {
     : reports.filter(r => r.category === filter);
 
   return (
-    <div className="h-[calc(100vh-5rem)] w-full relative z-0 bg-slate-950">
+    <div className="h-[calc(100vh-5rem)] w-full relative z-0 bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
       
-      {/* Top Cyber Category Filter Pills */}
+      {/* Category Filter Pills */}
       <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-[1000] w-11/12 max-w-4xl flex gap-2.5 overflow-x-auto p-2 no-scrollbar">
         {CATEGORIES.map(cat => (
           <button 
             key={cat}
             onClick={() => setFilter(cat)}
-            className={`whitespace-nowrap px-4 py-2 rounded-2xl font-black text-xs transition-all duration-300 backdrop-blur-3xl border ${
+            className={`whitespace-nowrap px-4 py-2 rounded-2xl font-black text-xs transition-all duration-300 backdrop-blur-3xl border shadow-sm ${
               !showHeatmap && filter === cat 
-                ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50 glow-emerald' 
-                : 'bg-slate-900/80 text-slate-300 border-slate-800 hover:bg-slate-800 hover:text-white'
+                ? 'bg-emerald-500/20 text-emerald-600 border-emerald-500/40 dark:text-emerald-400 dark:border-emerald-500/50 glow-emerald' 
+                : 'bg-white/80 text-slate-700 border-slate-200 hover:bg-slate-100 dark:bg-slate-900/80 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800 dark:hover:text-white'
             }`}
           >
             {cat === 'All' ? 'ALL INCIDENTS' : cat.replace('_', ' ').toUpperCase()}
@@ -60,17 +59,17 @@ const ReportMap = () => {
         ))}
         <button 
           onClick={() => setShowHeatmap(!showHeatmap)}
-          className={`whitespace-nowrap px-4 py-2 rounded-2xl font-black text-xs transition-all duration-300 backdrop-blur-3xl border ${
+          className={`whitespace-nowrap px-4 py-2 rounded-2xl font-black text-xs transition-all duration-300 backdrop-blur-3xl border shadow-sm ${
             showHeatmap 
-              ? 'bg-red-500/20 text-red-400 border-red-500/50 glow-red animate-pulse' 
-              : 'bg-slate-900/80 text-slate-300 border-slate-800 hover:bg-slate-800 hover:text-white'
+              ? 'bg-red-500/20 text-red-600 border-red-500/40 dark:text-red-400 dark:border-red-500/50 glow-red animate-pulse' 
+              : 'bg-white/80 text-slate-700 border-slate-200 hover:bg-slate-100 dark:bg-slate-900/80 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800 dark:hover:text-white'
           }`}
         >
           {showHeatmap ? '🔥 HIDE HOTSPOTS' : '🔥 SHOW HOTSPOT HEATMAP'}
         </button>
       </div>
 
-      {/* GIS Leaflet Map Engine */}
+      {/* Map Viewport */}
       <MapContainer center={[12.9716, 77.5946]} zoom={13} className="h-full w-full z-0">
         <TileLayer
           attribution='&copy; OpenStreetMap'
@@ -97,31 +96,31 @@ const ReportMap = () => {
             (report.latitude || report.lat) && (report.longitude || report.lng) && (
               <Marker key={report.id} position={[report.latitude || report.lat, report.longitude || report.lng]}>
                 <Popup className="custom-popup">
-                  <div className="w-64 -m-3 bg-slate-900/95 backdrop-blur-3xl rounded-2xl border border-slate-700 p-4 text-white shadow-2xl">
+                  <div className="w-64 -m-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-3xl rounded-2xl border border-slate-200 dark:border-slate-700 p-4 text-slate-900 dark:text-white shadow-2xl transition-colors duration-300">
                     <div className="flex justify-between items-start mb-2">
-                      <span className="font-black text-xs uppercase tracking-wider text-emerald-400">
+                      <span className="font-black text-xs uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
                         {report.category ? report.category.replace('_', ' ') : 'Incident'}
                       </span>
                       <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
-                        report.severity === 'high' || report.severity === 'HIGH' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
-                        report.severity === 'medium' || report.severity === 'MED' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
-                        'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                        report.severity === 'high' || report.severity === 'HIGH' ? 'bg-red-500/10 text-red-600 border border-red-500/20 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/30' :
+                        report.severity === 'medium' || report.severity === 'MED' ? 'bg-orange-500/10 text-orange-600 border border-orange-500/20 dark:bg-orange-500/20 dark:text-orange-400 dark:border-orange-500/30' :
+                        'bg-yellow-500/10 text-yellow-600 border border-yellow-500/20 dark:bg-yellow-500/20 dark:text-yellow-400 dark:border-yellow-500/30'
                       }`}>
                         {report.severity}
                       </span>
                     </div>
 
-                    <p className="text-xs text-slate-300 mb-3 font-semibold leading-relaxed">
+                    <p className="text-xs text-slate-700 dark:text-slate-300 mb-3 font-semibold leading-relaxed">
                       {report.description || 'Reported blockage on grid route.'}
                     </p>
 
-                    <div className="flex justify-between items-center pt-2 border-t border-slate-800">
-                      <span className="text-[10px] font-mono text-slate-400">
+                    <div className="flex justify-between items-center pt-2 border-t border-slate-200 dark:border-slate-800">
+                      <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400">
                         👍 {report.confirmation_count || 1} Confirmations
                       </span>
                       <button 
                         onClick={() => handleConfirm(report.id)}
-                        className="px-3 py-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[10px] font-black rounded-lg transition-all"
+                        className="px-3 py-1 bg-emerald-500 hover:bg-emerald-400 text-white dark:text-slate-950 text-[10px] font-black rounded-lg transition-all"
                       >
                         Confirm
                       </button>
@@ -134,17 +133,16 @@ const ReportMap = () => {
         )}
       </MapContainer>
 
-      {/* Floating Action Trigger for Reporting Incidents */}
+      {/* Floating Incident Reporting Trigger */}
       <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-[1000]">
         <button 
           onClick={() => setIsWizardOpen(true)}
-          className="px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest bg-gradient-to-r from-emerald-500 via-teal-400 to-blue-500 text-slate-950 shadow-[0_0_30px_rgba(16,185,129,0.5)] transition-all hover:scale-105 active:scale-95 flex items-center space-x-2"
+          className="px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest bg-gradient-to-r from-emerald-500 via-teal-400 to-blue-500 text-white dark:text-slate-950 shadow-lg dark:shadow-[0_0_30px_rgba(16,185,129,0.5)] transition-all hover:scale-105 active:scale-95 flex items-center space-x-2"
         >
           <span>📢 REPORT ROAD INCIDENT</span>
         </button>
       </div>
 
-      {/* Incident Wizard Modal */}
       {isWizardOpen && (
         <IncidentWizard 
           onClose={() => setIsWizardOpen(false)} 

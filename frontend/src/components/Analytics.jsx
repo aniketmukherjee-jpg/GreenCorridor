@@ -21,16 +21,6 @@ const incidentData = [
   { type: 'Other', count: 12 },
 ];
 
-const hospitalLoad = [
-  { day: 'Mon', icu: 85, emergency: 60, general: 75 },
-  { day: 'Tue', icu: 90, emergency: 65, general: 80 },
-  { day: 'Wed', icu: 75, emergency: 50, general: 70 },
-  { day: 'Thu', icu: 88, emergency: 80, general: 85 },
-  { day: 'Fri', icu: 95, emergency: 90, general: 90 }, 
-  { day: 'Sat', icu: 60, emergency: 40, general: 65 },
-  { day: 'Sun', icu: 55, emergency: 35, general: 60 },
-];
-
 const responseByZone = [
   { zone: 'Central Zone', avgResponse: 11.2, target: 15 },
   { zone: 'South Zone', avgResponse: 13.8, target: 15 },
@@ -54,13 +44,13 @@ const Analytics = () => {
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight flex items-center gap-3">
+            <h1 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
               <span>Analytics & Intelligence</span>
-              <span className="text-xs font-mono bg-purple-500/20 text-purple-400 border border-purple-500/30 px-3 py-1 rounded-full uppercase tracking-widest">
+              <span className="text-xs font-mono bg-purple-500/10 text-purple-600 border border-purple-500/20 dark:bg-purple-500/20 dark:text-purple-400 dark:border-purple-500/30 px-3 py-1 rounded-full uppercase tracking-widest">
                 CYBER INTEL
               </span>
             </h1>
-            <p className="text-slate-400 font-semibold text-sm mt-1">Real-time operational metrics and historical response trends</p>
+            <p className="text-slate-600 dark:text-slate-400 font-semibold text-sm mt-1">Real-time operational metrics and historical response trends</p>
           </div>
         </div>
 
@@ -72,12 +62,12 @@ const Analytics = () => {
             { label: 'Green Corridors', value: '38', trend: '+22%', positive: true, glow: 'glow-purple border-purple-500/30' },
             { label: 'Lives Saved Est.', value: '24', trend: '+8%', positive: true, glow: 'glow-emerald border-emerald-500/30' }
           ].map((kpi, i) => (
-            <div key={i} className={`backdrop-blur-3xl bg-slate-900/60 p-6 rounded-3xl border shadow-xl card-3d ${kpi.glow}`}>
+            <div key={i} className={`backdrop-blur-3xl bg-white/80 border border-slate-200 shadow-lg dark:bg-slate-900/60 dark:border-slate-800 dark:shadow-xl p-6 rounded-3xl card-3d ${kpi.glow} transition-colors duration-300`}>
               <div className="flex justify-between items-start mb-2">
-                <h3 className="text-slate-400 text-[10px] font-extrabold uppercase tracking-widest">{kpi.label}</h3>
-                <span className={`text-xs font-mono font-black ${kpi.positive ? 'text-emerald-400' : 'text-red-400'}`}>{kpi.trend}</span>
+                <h3 className="text-slate-500 dark:text-slate-400 text-[10px] font-extrabold uppercase tracking-widest">{kpi.label}</h3>
+                <span className={`text-xs font-mono font-black ${kpi.positive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>{kpi.trend}</span>
               </div>
-              <p className="text-4xl font-black text-white">{kpi.value}</p>
+              <p className="text-4xl font-black text-slate-900 dark:text-white">{kpi.value}</p>
             </div>
           ))}
         </div>
@@ -85,15 +75,15 @@ const Analytics = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
           {/* Response Time Trend */}
-          <div className="backdrop-blur-3xl bg-slate-900/60 p-6 rounded-3xl border border-slate-800 shadow-2xl">
-            <h2 className="text-base font-black text-white mb-6 flex items-center justify-between">
+          <div className="backdrop-blur-3xl bg-white/80 border border-slate-200 shadow-lg dark:bg-slate-900/60 dark:border-slate-800 dark:shadow-2xl p-6 rounded-3xl transition-colors duration-300">
+            <h2 className="text-base font-black text-slate-900 dark:text-white mb-6 flex items-center justify-between">
               <span>Response Time Trends (Today)</span>
-              <span className="text-[10px] font-mono text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">A* OPTIMIZED</span>
+              <span className="text-[10px] font-mono text-blue-600 dark:text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">A* OPTIMIZED</span>
             </h2>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={responseData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.2} />
                   <XAxis dataKey="time" stroke="#64748b" fontSize={11} tickLine={false} />
                   <YAxis stroke="#64748b" fontSize={11} tickLine={false} unit="m" />
                   <Tooltip 
@@ -108,15 +98,15 @@ const Analytics = () => {
           </div>
 
           {/* Incidents Breakdown */}
-          <div className="backdrop-blur-3xl bg-slate-900/60 p-6 rounded-3xl border border-slate-800 shadow-2xl">
-            <h2 className="text-base font-black text-white mb-6 flex items-center justify-between">
+          <div className="backdrop-blur-3xl bg-white/80 border border-slate-200 shadow-lg dark:bg-slate-900/60 dark:border-slate-800 dark:shadow-2xl p-6 rounded-3xl transition-colors duration-300">
+            <h2 className="text-base font-black text-slate-900 dark:text-white mb-6 flex items-center justify-between">
               <span>Incident Breakdown by Category</span>
-              <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">24H FEED</span>
+              <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">24H FEED</span>
             </h2>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={incidentData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.2} />
                   <XAxis dataKey="type" stroke="#64748b" fontSize={11} tickLine={false} />
                   <YAxis stroke="#64748b" fontSize={11} tickLine={false} />
                   <Tooltip 
@@ -129,15 +119,15 @@ const Analytics = () => {
           </div>
 
           {/* Response by Zone */}
-          <div className="backdrop-blur-3xl bg-slate-900/60 p-6 rounded-3xl border border-slate-800 shadow-2xl">
-            <h2 className="text-base font-black text-white mb-6 flex items-center justify-between">
+          <div className="backdrop-blur-3xl bg-white/80 border border-slate-200 shadow-lg dark:bg-slate-900/60 dark:border-slate-800 dark:shadow-2xl p-6 rounded-3xl transition-colors duration-300">
+            <h2 className="text-base font-black text-slate-900 dark:text-white mb-6 flex items-center justify-between">
               <span>Response Time by Police Zone</span>
-              <span className="text-[10px] font-mono text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">GEOGRAPHIC INTEL</span>
+              <span className="text-[10px] font-mono text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">GEOGRAPHIC INTEL</span>
             </h2>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={responseByZone} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.2} />
                   <XAxis type="number" stroke="#64748b" fontSize={11} tickLine={false} unit="m" />
                   <YAxis dataKey="zone" type="category" stroke="#64748b" fontSize={11} tickLine={false} width={100} />
                   <Tooltip 
@@ -150,15 +140,15 @@ const Analytics = () => {
           </div>
 
           {/* Hospital Load Balancing */}
-          <div className="backdrop-blur-3xl bg-slate-900/60 p-6 rounded-3xl border border-slate-800 shadow-2xl">
-            <h2 className="text-base font-black text-white mb-6 flex items-center justify-between">
+          <div className="backdrop-blur-3xl bg-white/80 border border-slate-200 shadow-lg dark:bg-slate-900/60 dark:border-slate-800 dark:shadow-2xl p-6 rounded-3xl transition-colors duration-300">
+            <h2 className="text-base font-black text-slate-900 dark:text-white mb-6 flex items-center justify-between">
               <span>Hospital ICU Load Balancing</span>
-              <span className="text-[10px] font-mono text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded border border-teal-500/20">CAPACITY METRICS</span>
+              <span className="text-[10px] font-mono text-teal-600 dark:text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded border border-teal-500/20">CAPACITY METRICS</span>
             </h2>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={hospitalLoadBalancing}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.2} />
                   <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} />
                   <YAxis stroke="#64748b" fontSize={11} tickLine={false} />
                   <Tooltip 
@@ -166,7 +156,7 @@ const Analytics = () => {
                   />
                   <Legend />
                   <Bar dataKey="occupied" name="Occupied Beds" fill="#ef4444" radius={[8, 8, 0, 0]} />
-                  <Bar dataKey="total" name="Total Capacity" fill="#334155" radius={[8, 8, 0, 0]} />
+                  <Bar dataKey="total" name="Total Capacity" fill="#94a3b8" radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

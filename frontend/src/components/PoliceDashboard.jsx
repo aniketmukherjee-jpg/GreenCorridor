@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useSimulation } from '../context/SimulationContext';
+import { useSimulation, createTacticalAmbulanceIcon } from '../context/SimulationContext';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import { 
@@ -8,7 +8,6 @@ import {
   Search, 
   X, 
   Activity, 
-  CheckCircle2, 
   Radio, 
   Layers 
 } from 'lucide-react';
@@ -18,14 +17,6 @@ L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
-
-const ambulanceIcon = L.divIcon({
-  html: '<div style="position: relative;"><div class="radar-sweep"></div><div style="font-size: 28px; filter: drop-shadow(0 0 10px rgba(168,85,247,0.9)); position: relative; z-index: 10;">🚑</div></div>',
-  className: 'custom-ambulance-icon',
-  iconSize: [36, 36],
-  iconAnchor: [18, 18],
-  popupAnchor: [0, -18],
 });
 
 const LiveTrackingMap = ({ onClose }) => {
@@ -55,9 +46,9 @@ const LiveTrackingMap = ({ onClose }) => {
             />
             {activeMissions.map(mission => (
               <React.Fragment key={mission.id}>
-                <Polyline positions={mission.route} color={mission.color || "#a855f7"} weight={6} opacity={0.8} dashArray="10, 10" className="animate-[dash_5s_linear_infinite]" style={{ filter: `drop-shadow(0 0 12px ${mission.color || '#a855f7'})` }} />
-                <Marker position={mission.position} icon={ambulanceIcon}>
-                  <Popup><div className="font-bold text-center">🚑 Unit {mission.id}<br/>ETA: {mission.eta}m</div></Popup>
+                <Polyline positions={mission.route} color={mission.color || "#10b981"} weight={6} opacity={0.85} strokeLinecap="round" strokeLinejoin="round" style={{ filter: `drop-shadow(0 0 12px ${mission.color || '#10b981'})` }} />
+                <Marker position={mission.position} icon={createTacticalAmbulanceIcon(mission.heading || 0)}>
+                  <Popup><div className="font-bold text-center">🚑 Unit {mission.id}<br/>ETA: {mission.eta}m<br/>Heading: {Math.round(mission.heading || 0)}°</div></Popup>
                 </Marker>
                 <Marker position={mission.route[mission.route.length - 1]}>
                   <Popup>Destination</Popup>

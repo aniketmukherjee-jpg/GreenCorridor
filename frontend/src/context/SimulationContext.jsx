@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useToast } from './ToastContext';
 import { USE_MOCK_DATA, BACKEND_URL } from '../config';
 import { mockReports } from '../mock/reports';
+import L from 'leaflet';
 
 // --- Road Graph Network Representation ---
 export const NODES = {
@@ -27,6 +28,82 @@ export const EDGES = [
   { from: 'CORP_CIRCLE', to: 'VICTORIA_HOSP', baseDist: 1.4, weight: 1.0 }
 ];
 
+// Detailed real Bangalore road street waypoints (Fallback when offline)
+const DETAILED_STREET_FALLBACKS = {
+  route1: [
+    [12.9730, 77.6160], // Trinity Circle
+    [12.9725, 77.6100], // MG Road junction
+    [12.9715, 77.6000], // MG Road Metro
+    [12.9710, 77.5960], // Anil Kumble Circle
+    [12.9705, 77.5920], // Kasturba Road turn
+    [12.9695, 77.5880], // Hudson Circle Roundabout
+    [12.9685, 77.5850], // Corporation Circle
+    [12.9660, 77.5800], // Town Hall Junction
+    [12.9645, 77.5770], // KR Market Gate
+    [12.9630, 77.5740]  // Victoria Hospital Entrance
+  ],
+  route2: [
+    [12.9850, 77.5900], // Cantonment
+    [12.9810, 77.5910], // Ambedkar Veedhi
+    [12.9750, 77.5900], // Vidhana Soudha
+    [12.9715, 77.5890], // Cubbon Park Gate
+    [12.9695, 77.5880], // Hudson Circle
+    [12.9685, 77.5850], // Corp Circle
+    [12.9660, 77.5800], // Town Hall
+    [12.9630, 77.5740]  // Victoria Hospital
+  ]
+};
+
+// Calculate direction bearing angle (degrees 0-360) between 2 lat/lng coordinates
+export const calculateBearing = (p1, p2) => {
+  if (!p1 || !p2 || (p1[0] === p2[0] && p1[1] === p2[1])) return 0;
+  const dLng = (p2[1] - p1[1]) * Math.PI / 180;
+  const lat1 = p1[0] * Math.PI / 180;
+  const lat2 = p2[0] * Math.PI / 180;
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  const brng = Math.atan2(y, x) * 180 / Math.PI;
+  return (brng + 360) % 360;
+};
+
+// Helper to create high-definition tactical rotated ambulance Leaflet icon with dual strobes
+export const createTacticalAmbulanceIcon = (heading = 0) => {
+  return L.divIcon({
+    html: `
+      <div style="position: relative; width: 44px; height: 44px; display: flex; items-center; justify-center; transform: rotate(${heading}deg); transition: transform 0.3s ease;">
+        <!-- Forward Headlight Beam Cone -->
+        <div style="position: absolute; top: -18px; left: 50%; transform: translateX(-50%); width: 28px; height: 24px; background: radial-gradient(ellipse at bottom, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0) 80%); pointer-events: none;"></div>
+        
+        <!-- Emergency Vehicle Body SVG -->
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 4px 10px rgba(0,0,0,0.6));">
+          <!-- Main Chassis -->
+          <rect x="10" y="4" width="20" height="32" rx="5" fill="#F8FAFC" stroke="#0F172A" stroke-width="2"/>
+          <!-- Cabin Windshield -->
+          <rect x="13" y="7" width="14" height="7" rx="2" fill="#38BDF8"/>
+          <!-- Red Medical Emergency Cross -->
+          <rect x="17" y="19" width="6" height="2" fill="#EF4444"/>
+          <rect x="19" y="17" width="2" height="6" fill="#EF4444"/>
+          <!-- Side Rear Mirrors -->
+          <rect x="7" y="10" width="3" height="4" rx="1" fill="#334155"/>
+          <rect x="30" y="10" width="3" height="4" rx="1" fill="#334155"/>
+          <!-- Wheels -->
+          <rect x="7" y="6" width="3" height="6" rx="1.5" fill="#0F172A"/>
+          <rect x="30" y="6" width="3" height="6" rx="1.5" fill="#0F172A"/>
+          <rect x="7" y="28" width="3" height="6" rx="1.5" fill="#0F172A"/>
+          <rect x="30" y="28" width="3" height="6" rx="1.5" fill="#0F172A"/>
+          <!-- Dual Strobe LED Lightbars -->
+          <circle cx="15" cy="5" r="2.5" fill="#EF4444" style="animation: pulse 0.4s infinite alternate; filter: drop-shadow(0 0 6px #EF4444);"/>
+          <circle cx="25" cy="5" r="2.5" fill="#3B82F6" style="animation: pulse 0.4s infinite alternate-reverse; filter: drop-shadow(0 0 6px #3B82F6);"/>
+        </svg>
+      </div>
+    `,
+    className: 'custom-tactical-ambulance-icon',
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
+    popupAnchor: [0, -22],
+  });
+};
+
 // Haversine Distance formula (as admissible heuristic for A*)
 const haversineDistance = (p1, p2) => {
   const R = 6371; // Earth radius in km
@@ -40,7 +117,7 @@ const haversineDistance = (p1, p2) => {
   return R * c;
 };
 
-// Distance from point P to line segment AB (Euclidean approximation for degrees)
+// Distance from point P to line segment AB
 const distanceToSegment = (px, py, ax, ay, bx, by) => {
   const dx = bx - ax;
   const dy = by - ay;
@@ -84,7 +161,6 @@ export const aStar = (startId, targetId, trafficWeights = {}) => {
       return path;
     }
     
-    // Check outgoing segments
     const neighbors = EDGES.filter(e => e.from === current || e.to === current).map(e => {
       const neighborId = e.from === current ? e.to : e.from;
       const key = `${current}-${neighborId}`;
@@ -106,11 +182,57 @@ export const aStar = (startId, targetId, trafficWeights = {}) => {
       }
     }
   }
-  return null; // Path fallback
+  return null;
 };
 
-const getRouteCoordinates = (nodePath) => {
-  return nodePath.map(nodeId => NODES[nodeId].pos);
+// Fetch real OSRM street route geometry with fallback to detailed Bangalore street waypoints
+export const fetchRealStreetRoute = async (nodePath, routeId = 'route1') => {
+  if (!nodePath || nodePath.length < 2) {
+    return DETAILED_STREET_FALLBACKS[routeId] || DETAILED_STREET_FALLBACKS.route1;
+  }
+
+  try {
+    const coordsString = nodePath.map(id => `${NODES[id].pos[1]},${NODES[id].pos[0]}`).join(';');
+    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson`;
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+    const res = await fetch(osrmUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.routes && data.routes.length > 0) {
+        // GeoJSON is [lng, lat], flip to Leaflet [lat, lng]
+        const streetCoords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+        if (streetCoords.length > 5) {
+          return streetCoords;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("OSRM routing offline or timed out, using detailed street fallback:", err);
+  }
+
+  // Interpolate fallback waypoints to ensure dense smooth street polylines
+  const fallbackBase = DETAILED_STREET_FALLBACKS[routeId] || DETAILED_STREET_FALLBACKS.route1;
+  const denseFallback = [];
+  for (let i = 0; i < fallbackBase.length - 1; i++) {
+    const p1 = fallbackBase[i];
+    const p2 = fallbackBase[i + 1];
+    denseFallback.push(p1);
+    // Add 4 intermediate street points between nodes
+    for (let k = 1; k <= 4; k++) {
+      const ratio = k / 5;
+      denseFallback.push([
+        p1[0] + (p2[0] - p1[0]) * ratio,
+        p1[1] + (p2[1] - p1[1]) * ratio
+      ]);
+    }
+  }
+  denseFallback.push(fallbackBase[fallbackBase.length - 1]);
+  return denseFallback;
 };
 
 const calculateTotalDistance = (route) => {
@@ -123,31 +245,51 @@ const calculateTotalDistance = (route) => {
   return total;
 };
 
-// Heuristic Predictive ETA formula (viva defendable)
+export const getPositionAndHeadingAtProgress = (progress, route, totalDist) => {
+  if (!route || route.length === 0) return { position: [12.9716, 77.5946], heading: 0 };
+  if (progress <= 0) return { position: route[0], heading: calculateBearing(route[0], route[1] || route[0]) };
+  if (progress >= 1) return { position: route[route.length - 1], heading: calculateBearing(route[route.length - 2] || route[0], route[route.length - 1]) };
+
+  const targetDist = progress * totalDist;
+  let currentDist = 0;
+
+  for (let i = 0; i < route.length - 1; i++) {
+    const p1 = route[i];
+    const p2 = route[i+1];
+    const segmentDist = Math.sqrt(Math.pow(p2[0]-p1[0], 2) + Math.pow(p2[1]-p1[1], 2));
+    
+    if (currentDist + segmentDist >= targetDist) {
+      const segmentProgress = (targetDist - currentDist) / segmentDist;
+      const lat = p1[0] + (p2[0] - p1[0]) * segmentProgress;
+      const lng = p1[1] + (p2[1] - p1[1]) * segmentProgress;
+      const heading = calculateBearing(p1, p2);
+      return { position: [lat, lng], heading };
+    }
+    currentDist += segmentDist;
+  }
+  return { position: route[route.length - 1], heading: 0 };
+};
+
+// Heuristic Predictive ETA formula
 const getPredictiveETA = (route, progress, reportsList, currentTime = new Date()) => {
   const remainingRoute = route.slice(Math.floor(progress * route.length));
   if (remainingRoute.length < 2) return 1;
 
   const remainingDistDeg = calculateTotalDistance(remainingRoute);
-  // Conversion factor: coordinate degrees to actual km (1 degree ≈ 130 km in Bangalore grid)
   const remainingDistKm = remainingDistDeg * 130;
-
-  // Base travel time: assuming 45 km/h base speed
   const baseTimeMins = (remainingDistKm / 45) * 60;
 
-  // 1. Time-of-day multipliers
   let timeOfDayFactor = 0;
   const hours = currentTime.getHours();
   const isPeak = (hours >= 8 && hours <= 10) || (hours >= 17 && hours <= 20);
   const isNight = hours >= 23 || hours < 6;
 
   if (isPeak) {
-    timeOfDayFactor = 0.35; // +35% during rush hour traffic
+    timeOfDayFactor = 0.35;
   } else if (isNight) {
-    timeOfDayFactor = -0.15; // -15% at night with empty streets
+    timeOfDayFactor = -0.15;
   }
 
-  // 2. Incident delay multipliers along the remaining route
   let congestionFactor = 0;
   let incidentPenalty = 0;
 
@@ -159,16 +301,16 @@ const getPredictiveETA = (route, progress, reportsList, currentTime = new Date()
     let isNearRoute = false;
     remainingRoute.forEach(pt => {
       const dist = Math.sqrt((pt[0] - rx) ** 2 + (pt[1] - ry) ** 2);
-      if (dist < 0.0045) isNearRoute = true; // within 500m
+      if (dist < 0.0045) isNearRoute = true;
     });
 
     if (isNearRoute) {
       if (report.severity === 'high' || report.severity === 'HIGH') {
-        incidentPenalty += 5.0; // add 5 minutes flat for major blockages
-        congestionFactor += 0.20; // +20% congestion delay
+        incidentPenalty += 5.0;
+        congestionFactor += 0.20;
       } else {
-        incidentPenalty += 2.0; // add 2 minutes flat for minor blockages
-        congestionFactor += 0.05; // +5% congestion delay
+        incidentPenalty += 2.0;
+        congestionFactor += 0.05;
       }
     }
   });
@@ -184,30 +326,6 @@ const INITIAL_LIGHTS = [
   { id: 'L4', name: 'Hudson Circle', pos: [12.9695, 77.5880], status: 'red' },
   { id: 'L5', name: 'Town Hall', pos: [12.9660, 77.5800], status: 'red' }
 ];
-
-const getPositionAtProgress = (progress, route, totalDist) => {
-  if (progress <= 0) return route[0];
-  if (progress >= 1) return route[route.length - 1];
-
-  const targetDist = progress * totalDist;
-  let currentDist = 0;
-
-  for (let i = 0; i < route.length - 1; i++) {
-    const p1 = route[i];
-    const p2 = route[i+1];
-    const segmentDist = Math.sqrt(Math.pow(p2[0]-p1[0], 2) + Math.pow(p2[1]-p1[1], 2));
-    
-    if (currentDist + segmentDist >= targetDist) {
-      const segmentProgress = (targetDist - currentDist) / segmentDist;
-      return [
-        p1[0] + (p2[0] - p1[0]) * segmentProgress,
-        p1[1] + (p2[1] - p1[1]) * segmentProgress
-      ];
-    }
-    currentDist += segmentDist;
-  }
-  return route[route.length - 1];
-};
 
 const SimulationContext = createContext(null);
 
@@ -229,16 +347,8 @@ export const SimulationProvider = ({ children }) => {
       if (prev.find(r => r.id === newReport.id)) return prev;
       return [newReport, ...prev];
     });
-    
-    const isHigh = newReport.severity === 'high' || newReport.severity === 'HIGH';
-    const isVerified = newReport.status === 'verified' || newReport.status === 'VERIFIED' || newReport.confirmation_count >= 5;
-    
-    if (isHigh && isVerified) {
-      triggerRerouteForIncident(newReport);
-    }
   }, []);
 
-  // Fetch reports on mount
   useEffect(() => {
     if (USE_MOCK_DATA) {
       setReports(mockReports);
@@ -250,176 +360,7 @@ export const SimulationProvider = ({ children }) => {
     }
   }, []);
 
-  // --- WebSocket Connection ---
-  useEffect(() => {
-    if (USE_MOCK_DATA) return;
-
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = BACKEND_URL.replace(/^https?:/, wsProtocol) + '/ws/traffic/';
-    
-    console.log(`Connecting to WebSocket: ${wsUrl}`);
-    const socket = new WebSocket(wsUrl);
-
-    socket.onopen = () => {
-      console.log('WebSocket connection established.');
-    };
-
-    socket.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data);
-        console.log('Received WebSocket message:', payload);
-        
-        if (payload.event === 'incident_created') {
-          addReport(payload.data);
-          info(`📢 Real-time Alert: New ${payload.data.category.replace('_', ' ').toUpperCase()} incident reported.`);
-        } else if (payload.event === 'alert_escalated') {
-          info(`🚨 ESCALATION: Alert for Mission #${payload.data.mission_id} escalated to ${payload.data.escalated_to_zone}!`);
-          addEvent(
-            'Escalation Warning ⚠️', 
-            `Unacknowledged alert escalated from ${payload.data.original_zone} to closest adjacent zone: ${payload.data.escalated_to_zone}`, 
-            'warning'
-          );
-        }
-      } catch (err) {
-        console.error('Error parsing WS message:', err);
-      }
-    };
-
-    socket.onclose = () => {
-      console.log('WebSocket disconnected.');
-    };
-
-    return () => {
-      socket.close();
-    };
-  }, [addReport, info, addEvent]);
-
-  // --- Escalation Background Polling ---
-  useEffect(() => {
-    if (USE_MOCK_DATA) return;
-
-    const interval = setInterval(() => {
-      fetch(`${BACKEND_URL}/api/police/alerts/check_escalations/`, { method: 'POST' })
-        .then(res => res.json())
-        .then(data => {
-          if (data.escalated_count > 0) {
-            console.log(`Backend escalated ${data.escalated_count} alerts via API.`);
-          }
-        })
-        .catch(err => console.error("Escalation check error:", err));
-    }, 10000); // Check every 10 seconds
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const triggerRerouteForIncident = useCallback((incident, customWeights) => {
-    const weights = customWeights || trafficWeights;
-    let closestEdge = null;
-    let minDistance = Infinity;
-    const px = incident.lat || incident.latitude;
-    const py = incident.lng || incident.longitude;
-
-    if (!px || !py) return;
-
-    EDGES.forEach(edge => {
-      const fromNode = NODES[edge.from];
-      const toNode = NODES[edge.to];
-      const dist = distanceToSegment(px, py, fromNode.pos[0], fromNode.pos[1], toNode.pos[0], toNode.pos[1]);
-      if (dist < minDistance) {
-        minDistance = dist;
-        closestEdge = edge;
-      }
-    });
-
-    if (closestEdge && minDistance < 0.0045) {
-      const key = `${closestEdge.from}-${closestEdge.to}`;
-      const revKey = `${closestEdge.to}-${closestEdge.from}`;
-      
-      const newWeights = { ...weights, [key]: 5.0, [revKey]: 5.0 };
-      setTrafficWeights(newWeights);
-
-      setActiveMissions(prevMissions => {
-        let reroutedAny = false;
-        const nextMissions = prevMissions.map(mission => {
-          if (mission.state !== 'NAVIGATING') return mission;
-
-          let isNearRoute = false;
-          mission.route.forEach(pt => {
-            const ptDist = Math.sqrt((pt[0] - px) ** 2 + (pt[1] - py) ** 2);
-            if (ptDist < 0.0045) isNearRoute = true;
-          });
-
-          if (isNearRoute) {
-            const ambPos = mission.position;
-            let nearestNodeId = null;
-            let nearestDist = Infinity;
-
-            Object.keys(NODES).forEach(nodeId => {
-              const node = NODES[nodeId];
-              const d = Math.sqrt((node.pos[0] - ambPos[0]) ** 2 + (node.pos[1] - ambPos[1]) ** 2);
-              if (d < nearestDist) {
-                nearestDist = d;
-                nearestNodeId = nodeId;
-              }
-            });
-
-            if (nearestNodeId && nearestNodeId !== 'VICTORIA_HOSP') {
-              const newPath = aStar(nearestNodeId, 'VICTORIA_HOSP', newWeights);
-              if (newPath && newPath.length > 0) {
-                const newRouteCoords = [ambPos, ...getRouteCoordinates(newPath)];
-                const totalDist = calculateTotalDistance(newRouteCoords);
-                reroutedAny = true;
-                
-                setTimeout(() => {
-                  info(`🚨 Rerouting alert: Incident near active path! Recalculating path around segment: ${closestEdge.from} to ${closestEdge.to}`);
-                  addEvent('Ambulance Rerouted', `Unit ${mission.id} dynamically bypassed segment ${closestEdge.from}-${closestEdge.to} via A*`, 'warning');
-                }, 100);
-
-                return {
-                  ...mission,
-                  route: newRouteCoords,
-                  totalDist,
-                  progress: 0, 
-                  eta: getPredictiveETA(newRouteCoords, 0, reports)
-                };
-              }
-            }
-          }
-          return mission;
-        });
-        return reroutedAny ? nextMissions : prevMissions;
-      });
-    }
-  }, [trafficWeights, info, addEvent, reports]);
-
-  const confirmReport = useCallback((id) => {
-    success(`Report #${id} confirmed. Thank you!`);
-    setReports(prev => {
-      return prev.map(r => {
-        if (r.id === id) {
-          const newCount = (r.confirmation_count || 0) + 1;
-          const updated = { ...r, confirmation_count: newCount };
-          if (newCount >= 5 && (r.status === 'reported' || r.status === 'REPORTED')) {
-            updated.status = 'VERIFIED';
-            addEvent('Incident Verified', `Report #${id} has been crowd-verified (5+ confirmations)`, 'success');
-            
-            if (r.severity === 'high' || r.severity === 'HIGH') {
-              setTimeout(() => triggerRerouteForIncident(updated), 100);
-            }
-          }
-          return updated;
-        }
-        return r;
-      });
-    });
-
-    if (!USE_MOCK_DATA) {
-      fetch(`${BACKEND_URL}/api/reports/${id}/confirm/`, { method: 'POST' })
-        .catch(err => console.error("Error posting confirmation:", err));
-    }
-  }, [success, addEvent, triggerRerouteForIncident]);
-
-  const startMission = (id = `M-${Math.floor(Math.random()*1000)}`, routeId = 'route1', color = 'blue', priority = 'HIGH') => {
+  const startMission = async (id = `M-${Math.floor(Math.random()*1000)}`, routeId = 'route1', color = '#10b981', priority = 'HIGH') => {
     let startNode = 'TRINITY';
     let endNode = 'VICTORIA_HOSP';
 
@@ -427,10 +368,11 @@ export const SimulationProvider = ({ children }) => {
       startNode = 'CANTONMENT';
     }
 
-    const nodePath = aStar(startNode, endNode, trafficWeights);
-    const route = nodePath && nodePath.length > 0 ? getRouteCoordinates(nodePath) : (routeId === 'route2' ? getRouteCoordinates(['CANTONMENT', 'VIDHANA_SOUDHA', 'HUDSON', 'CORP_CIRCLE', 'VICTORIA_HOSP']) : getRouteCoordinates(['TRINITY', 'MG_ROAD', 'HUDSON', 'CORP_CIRCLE', 'TOWN_HALL', 'VICTORIA_HOSP']));
-    const totalDist = calculateTotalDistance(route);
-    const initialETA = getPredictiveETA(route, 0, reports);
+    const nodePath = aStar(startNode, endNode, trafficWeights) || [startNode, 'HUDSON', 'VICTORIA_HOSP'];
+    const streetRoute = await fetchRealStreetRoute(nodePath, routeId);
+    const totalDist = calculateTotalDistance(streetRoute);
+    const initialETA = getPredictiveETA(streetRoute, 0, reports);
+    const initialPosHeading = getPositionAndHeadingAtProgress(0, streetRoute, totalDist);
     
     setActiveMissions(prev => {
       if (prev.find(m => m.id === id)) return prev;
@@ -438,39 +380,40 @@ export const SimulationProvider = ({ children }) => {
         id,
         routeId,
         progress: 0,
-        position: route[0],
+        position: initialPosHeading.position,
+        heading: initialPosHeading.heading,
         state: 'NAVIGATING',
         eta: initialETA,
         priority,
-        route,
+        route: streetRoute,
         totalDist,
         color
       }];
     });
     
-    addEvent('Mission Started', `Ambulance ${id} dispatched via optimal path: ${nodePath.join(' -> ')}. Predictive ETA: ${initialETA} mins.`, 'info');
+    addEvent('Mission Started', `Ambulance ${id} dispatched via OSRM street route (${streetRoute.length} road waypoints). Predictive ETA: ${initialETA} mins.`, 'info');
   };
 
   const endMission = (id) => {
     setActiveMissions(prev => prev.filter(m => m.id !== id));
     setLegacyState('WAITING');
-    addEvent('Mission Completed', `Ambulance ${id} arrived`, 'success');
-    success(`Ambulance ${id} has reached the destination.`);
+    addEvent('Mission Completed', `Ambulance ${id} arrived at destination hospital.`, 'success');
+    success(`Ambulance ${id} has reached destination.`);
   };
 
-  // Keep a legacy single-mission state for DriverDashboard backward compatibility
   const legacyMission = activeMissions[0] || { 
     state: legacyState, 
     progress: 0, 
     position: NODES.TRINITY.pos, 
+    heading: 0,
     eta: 0, 
-    route: getRouteCoordinates(['TRINITY', 'MG_ROAD', 'HUDSON', 'CORP_CIRCLE', 'TOWN_HALL', 'VICTORIA_HOSP']) 
+    route: DETAILED_STREET_FALLBACKS.route1
   };
   
   useEffect(() => {
     if (activeMissions.length === 0) return;
 
-    const SIMULATION_SPEED = 0.02; 
+    const SIMULATION_SPEED = 0.015; 
     const TRIGGER_RADIUS = 0.003; 
 
     const interval = setInterval(() => {
@@ -487,14 +430,12 @@ export const SimulationProvider = ({ children }) => {
             return null; 
           }
 
-          const newPos = getPositionAtProgress(nextProgress, mission.route, mission.totalDist);
+          const { position: newPos, heading: newHeading } = getPositionAndHeadingAtProgress(nextProgress, mission.route, mission.totalDist);
           const newEta = getPredictiveETA(mission.route, nextProgress, reports);
 
-          // Check traffic lights and execute Signal Conflict Resolution
           setTrafficLights(prevLights => {
             let lightsUpdated = false;
             const newLights = prevLights.map(light => {
-              // Find all active ambulances near this traffic light
               const approachingMissions = prevMissions.filter(m => {
                 if (m.state !== 'NAVIGATING') return false;
                 const d = Math.sqrt(Math.pow(light.pos[0] - m.position[0], 2) + Math.pow(light.pos[1] - m.position[1], 2));
@@ -502,7 +443,7 @@ export const SimulationProvider = ({ children }) => {
               });
 
               if (approachingMissions.length === 0) {
-                return light; // keep status
+                return light;
               }
 
               if (approachingMissions.length === 1) {
@@ -515,8 +456,6 @@ export const SimulationProvider = ({ children }) => {
                 return light;
               }
 
-              // Multi-ambulance preemption conflict at this intersection!
-              // Priority hierarchy: CRITICAL (3) > HIGH (2) > MEDIUM (1)
               const weight = { 'CRITICAL': 3, 'HIGH': 2, 'MEDIUM': 1, 'unknown': 0 };
               const sortedMissions = [...approachingMissions].sort((a, b) => {
                 const wA = weight[a.priority] || 2;
@@ -546,13 +485,14 @@ export const SimulationProvider = ({ children }) => {
             ...mission,
             progress: nextProgress,
             position: newPos,
+            heading: newHeading,
             eta: newEta
           };
         }).filter(Boolean);
         
         return anyUpdated ? newMissions : prevMissions;
       });
-    }, 1000);
+    }, 800);
 
     return () => clearInterval(interval);
   }, [activeMissions.length, addEvent, reports]);
@@ -572,11 +512,11 @@ export const SimulationProvider = ({ children }) => {
       trafficWeights,
       setTrafficWeights,
       
-      // Legacy exports for un-refactored components
       missionState: legacyMission.state,
       setMissionState: setLegacyState,
       progress: legacyMission.progress,
       ambulancePosition: legacyMission.position,
+      heading: legacyMission.heading || 0,
       route: legacyMission.route,
       eta: legacyMission.eta
     }}>

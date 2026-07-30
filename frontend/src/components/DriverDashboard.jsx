@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useToast } from '../context/ToastContext';
-import { useSimulation } from '../context/SimulationContext';
+import { useSimulation, createTacticalAmbulanceIcon } from '../context/SimulationContext';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -22,16 +22,8 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-const ambulanceIcon = L.divIcon({
-  html: '<div style="position: relative;"><div class="radar-sweep"></div><div style="font-size: 28px; filter: drop-shadow(0 0 10px rgba(239,68,68,0.9)); position: relative; z-index: 10;">🚑</div></div>',
-  className: 'custom-ambulance-icon',
-  iconSize: [36, 36],
-  iconAnchor: [18, 18],
-  popupAnchor: [0, -18],
-});
-
 const DriverDashboard = () => {
-  const { missionState, setMissionState, ambulancePosition, route, eta, startMission } = useSimulation();
+  const { missionState, setMissionState, ambulancePosition, heading, route, eta, startMission } = useSimulation();
   const [sosProgress, setSosProgress] = useState(0);
   const [isSosActive, setIsSosActive] = useState(false);
   const sosIntervalRef = useRef(null);
@@ -131,9 +123,9 @@ const DriverDashboard = () => {
           />
           {missionState === 'NAVIGATING' && (
             <>
-              <Polyline positions={route} color="#10b981" weight={6} opacity={0.8} dashArray="10, 10" className="animate-[dash_5s_linear_infinite]" style={{ filter: 'drop-shadow(0 0 12px rgba(16,185,129,0.9))' }} />
-              <Marker position={ambulancePosition} icon={ambulanceIcon}>
-                <Popup>Vehicle Telemetry Active</Popup>
+              <Polyline positions={route} color="#10b981" weight={6} opacity={0.85} strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'drop-shadow(0 0 12px rgba(16,185,129,0.9))' }} />
+              <Marker position={ambulancePosition} icon={createTacticalAmbulanceIcon(heading)}>
+                <Popup>Vehicle Telemetry Active (Heading: {Math.round(heading)}°)</Popup>
               </Marker>
               <Marker position={route[route.length - 1]}>
                 <Popup>Destination: Victoria Hospital</Popup>

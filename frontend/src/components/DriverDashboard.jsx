@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useToast } from '../context/ToastContext';
-import { useSimulation, createTacticalAmbulanceIcon } from '../context/SimulationContext';
+import { useSimulation, createTacticalAmbulanceIcon, createTrafficSignalIcon } from '../context/SimulationContext';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -23,7 +23,7 @@ L.Icon.Default.mergeOptions({
 });
 
 const DriverDashboard = () => {
-  const { missionState, setMissionState, ambulancePosition, heading, route, eta, startMission } = useSimulation();
+  const { missionState, setMissionState, ambulancePosition, heading, route, eta, startMission, trafficLights } = useSimulation();
   const [sosProgress, setSosProgress] = useState(0);
   const [isSosActive, setIsSosActive] = useState(false);
   const sosIntervalRef = useRef(null);
@@ -118,9 +118,24 @@ const DriverDashboard = () => {
       <div className="flex-1 relative flex items-center justify-center z-10 overflow-hidden">
         <MapContainer center={[12.9716, 77.5946]} zoom={13} className="absolute inset-0 z-0" zoomControl={false}>
           <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            attribution='&copy; OpenStreetMap'
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
           />
+
+          {/* Live Physical Traffic Signal Markers on Map */}
+          {trafficLights && trafficLights.map(light => (
+            <Marker key={light.id} position={light.pos} icon={createTrafficSignalIcon(light.status, light.name)}>
+              <Popup>
+                <div className="font-extrabold text-xs text-center p-1">
+                  <div>🚥 {light.name}</div>
+                  <div className={`mt-1 text-[10px] uppercase font-mono font-black ${light.status === 'green' ? 'text-emerald-500' : 'text-red-500'}`}>
+                    {light.status === 'green' ? '🟢 GREEN (PREEMPTED)' : '🔴 RED (NORMAL)'}
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+
           {missionState === 'NAVIGATING' && (
             <>
               <Polyline positions={route} color="#10b981" weight={6} opacity={0.85} strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'drop-shadow(0 0 12px rgba(16,185,129,0.9))' }} />

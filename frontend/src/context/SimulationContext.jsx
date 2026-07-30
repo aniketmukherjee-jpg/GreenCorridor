@@ -28,33 +28,67 @@ export const EDGES = [
   { from: 'CORP_CIRCLE', to: 'VICTORIA_HOSP', baseDist: 1.4, weight: 1.0 }
 ];
 
-// Detailed real Bangalore road street waypoints (Fallback when offline)
-const DETAILED_STREET_FALLBACKS = {
-  route1: [
-    [12.9730, 77.6160], // Trinity Circle
-    [12.9725, 77.6100], // MG Road junction
-    [12.9715, 77.6000], // MG Road Metro
-    [12.9710, 77.5960], // Anil Kumble Circle
-    [12.9705, 77.5920], // Kasturba Road turn
-    [12.9695, 77.5880], // Hudson Circle Roundabout
-    [12.9685, 77.5850], // Corporation Circle
-    [12.9660, 77.5800], // Town Hall Junction
-    [12.9645, 77.5770], // KR Market Gate
-    [12.9630, 77.5740]  // Victoria Hospital Entrance
-  ],
-  route2: [
-    [12.9850, 77.5900], // Cantonment
-    [12.9810, 77.5910], // Ambedkar Veedhi
-    [12.9750, 77.5900], // Vidhana Soudha
-    [12.9715, 77.5890], // Cubbon Park Gate
-    [12.9695, 77.5880], // Hudson Circle
-    [12.9685, 77.5850], // Corp Circle
-    [12.9660, 77.5800], // Town Hall
-    [12.9630, 77.5740]  // Victoria Hospital
-  ]
+// Helper to generate dense street-following polyline points between anchor keypoints
+const interpolateStreetPoints = (anchors, pointsPerSegment = 10) => {
+  const dense = [];
+  for (let i = 0; i < anchors.length - 1; i++) {
+    const p1 = anchors[i];
+    const p2 = anchors[i + 1];
+    dense.push(p1);
+    for (let k = 1; k < pointsPerSegment; k++) {
+      const ratio = k / pointsPerSegment;
+      dense.push([
+        p1[0] + (p2[0] - p1[0]) * ratio,
+        p1[1] + (p2[1] - p1[1]) * ratio
+      ]);
+    }
+  }
+  dense.push(anchors[anchors.length - 1]);
+  return dense;
 };
 
-// Calculate direction bearing angle (degrees 0-360) between 2 lat/lng coordinates
+// Anchor waypoints strictly following Bangalore street curves & intersections
+const ANCHORS_ROUTE1 = [
+  [12.9730, 77.6160], // Trinity Circle Signal
+  [12.9728, 77.6130], // Trinity Church Road
+  [12.9723, 77.6080], // Utility Building / Cauvery Handicrafts
+  [12.9718, 77.6040], // Brigade Road Junction
+  [12.9715, 77.6000], // MG Road Metro Station
+  [12.9712, 77.5975], // Anil Kumble Circle
+  [12.9708, 77.5950], // St. Mark's Road Junction
+  [12.9704, 77.5925], // Kasturba Road Curve (Cubbon Park)
+  [12.9698, 77.5900], // Government Museum / Visvesvaraya Museum
+  [12.9695, 77.5880], // Hudson Circle Roundabout
+  [12.9690, 77.5865], // Nrupathunga Road
+  [12.9685, 77.5850], // Corporation Circle
+  [12.9675, 77.5830], // JC Road Straight
+  [12.9660, 77.5800], // Town Hall Junction Signal
+  [12.9650, 77.5780], // Silver Jubilee Park Road
+  [12.9642, 77.5760], // KR Market Junction
+  [12.9635, 77.5748], // Fort High School / Victoria Hospital Road
+  [12.9630, 77.5740]  // Victoria Hospital Emergency Gate
+];
+
+const ANCHORS_ROUTE2 = [
+  [12.9850, 77.5900], // Cantonment Railway Station
+  [12.9825, 77.5908], // Miller Road
+  [12.9800, 77.5912], // Infant Jesus Church / High Grounds
+  [12.9775, 77.5905], // Raj Bhavan Road
+  [12.9750, 77.5900], // Vidhana Soudha Junction Signal
+  [12.9725, 77.5895], // High Court of Karnataka / Ambedkar Veedhi
+  [12.9705, 77.5890], // Cubbon Park Post Office
+  [12.9695, 77.5880], // Hudson Circle Roundabout
+  [12.9685, 77.5850], // Corporation Circle
+  [12.9660, 77.5800], // Town Hall Junction
+  [12.9630, 77.5740]  // Victoria Hospital
+];
+
+export const REAL_STREET_ROUTES = {
+  route1: interpolateStreetPoints(ANCHORS_ROUTE1, 10),
+  route2: interpolateStreetPoints(ANCHORS_ROUTE2, 10)
+};
+
+// Calculate direction bearing angle (degrees 0-360)
 export const calculateBearing = (p1, p2) => {
   if (!p1 || !p2 || !Array.isArray(p1) || !Array.isArray(p2) || (p1[0] === p2[0] && p1[1] === p2[1])) return 0;
   const dLng = (p2[1] - p1[1]) * Math.PI / 180;
@@ -66,7 +100,7 @@ export const calculateBearing = (p1, p2) => {
   return (brng + 360) % 360;
 };
 
-// Helper to create high-definition tactical rotated ambulance Leaflet icon with dual strobes
+// Helper to create tactical rotated ambulance Leaflet icon with dual strobes
 export const createTacticalAmbulanceIcon = (heading = 0) => {
   const safeHeading = isNaN(heading) ? 0 : heading;
   return L.divIcon({
@@ -102,6 +136,39 @@ export const createTacticalAmbulanceIcon = (heading = 0) => {
     iconSize: [44, 44],
     iconAnchor: [22, 22],
     popupAnchor: [0, -22],
+  });
+};
+
+// Helper to create Traffic Signal Leaflet map icon showing live Red/Green status
+export const createTrafficSignalIcon = (status = 'red', name = '') => {
+  const isGreen = status === 'green';
+  const glowColor = isGreen ? '#10B981' : '#EF4444';
+  const greenOpacity = isGreen ? '1.0' : '0.2';
+  const redOpacity = isGreen ? '0.2' : '1.0';
+
+  return L.divIcon({
+    html: `
+      <div style="position: relative; display: flex; flex-direction: column; items-center; justify-center; filter: drop-shadow(0 0 10px ${glowColor});">
+        <!-- Live Status Pulsing Beacon -->
+        <div style="position: absolute; top: -4px; left: -4px; width: 36px; height: 48px; border-radius: 12px; border: 2px solid ${glowColor}; opacity: 0.8; animation: ping 1.5s infinite;"></div>
+        
+        <!-- Traffic Light Box SVG -->
+        <svg width="28" height="40" viewBox="0 0 28 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Metallic Box -->
+          <rect x="2" y="2" width="24" height="36" rx="6" fill="#0F172A" stroke="#334155" stroke-width="2"/>
+          <!-- Red Light Lens -->
+          <circle cx="14" cy="9" r="4.5" fill="#EF4444" fill-opacity="${redOpacity}" stroke="#EF4444" stroke-width="1.5" style="${!isGreen ? 'filter: drop-shadow(0 0 8px #EF4444);' : ''}"/>
+          <!-- Amber Light Lens -->
+          <circle cx="14" cy="20" r="4.5" fill="#F59E0B" fill-opacity="0.2" stroke="#F59E0B" stroke-width="1.5"/>
+          <!-- Green Light Lens -->
+          <circle cx="14" cy="31" r="4.5" fill="#10B981" fill-opacity="${greenOpacity}" stroke="#10B981" stroke-width="1.5" style="${isGreen ? 'filter: drop-shadow(0 0 8px #10B981);' : ''}"/>
+        </svg>
+      </div>
+    `,
+    className: 'custom-traffic-signal-icon',
+    iconSize: [28, 40],
+    iconAnchor: [14, 20],
+    popupAnchor: [0, -20],
   });
 };
 
@@ -169,46 +236,6 @@ export const aStar = (startId, targetId, trafficWeights = {}) => {
     }
   }
   return null;
-};
-
-// Fetch real OSRM street route geometry with fallback
-export const fetchRealStreetRoute = async (nodePath, routeId = 'route1') => {
-  const fallbackBase = DETAILED_STREET_FALLBACKS[routeId] || DETAILED_STREET_FALLBACKS.route1;
-  if (!nodePath || !Array.isArray(nodePath) || nodePath.length < 2) {
-    return fallbackBase;
-  }
-
-  try {
-    const coordsString = nodePath.map(id => {
-      const n = NODES[id];
-      return n ? `${n.pos[1]},${n.pos[0]}` : null;
-    }).filter(Boolean).join(';');
-
-    if (coordsString) {
-      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson`;
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000);
-
-      const res = await fetch(osrmUrl, { signal: controller.signal });
-      clearTimeout(timeoutId);
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.routes && data.routes.length > 0 && data.routes[0].geometry && data.routes[0].geometry.coordinates) {
-          const streetCoords = data.routes[0].geometry.coordinates
-            .map(c => [c[1], c[0]])
-            .filter(c => Array.isArray(c) && c.length >= 2 && !isNaN(c[0]) && !isNaN(c[1]));
-          if (streetCoords.length > 5) {
-            return streetCoords;
-          }
-        }
-      }
-    }
-  } catch (err) {
-    console.warn("OSRM routing offline or timed out, using detailed street fallback:", err);
-  }
-
-  return fallbackBase;
 };
 
 const calculateTotalDistance = (route) => {
@@ -324,7 +351,7 @@ export const SimulationProvider = ({ children }) => {
   const [legacyState, setLegacyState] = useState('WAITING');
   const [reports, setReports] = useState([]);
   const [trafficWeights, setTrafficWeights] = useState({});
-  const { info, success, error } = useToast();
+  const { info, success } = useToast();
 
   const addEvent = useCallback((title, description, type = 'info') => {
     setEvents(prev => [{ id: Date.now() + Math.random(), title, description, type, time: new Date() }, ...prev]);
@@ -371,16 +398,8 @@ export const SimulationProvider = ({ children }) => {
     }
   }, []);
 
-  const startMission = async (id = `M-${Math.floor(Math.random()*1000)}`, routeId = 'route1', color = '#10b981', priority = 'HIGH') => {
-    let startNode = 'TRINITY';
-    let endNode = 'VICTORIA_HOSP';
-
-    if (routeId === 'route2') {
-      startNode = 'CANTONMENT';
-    }
-
-    const nodePath = aStar(startNode, endNode, trafficWeights) || [startNode, 'HUDSON', 'VICTORIA_HOSP'];
-    const streetRoute = await fetchRealStreetRoute(nodePath, routeId);
+  const startMission = (id = `M-${Math.floor(Math.random()*1000)}`, routeId = 'route1', color = '#10b981', priority = 'HIGH') => {
+    const streetRoute = REAL_STREET_ROUTES[routeId] || REAL_STREET_ROUTES.route1;
     const totalDist = calculateTotalDistance(streetRoute);
     const initialETA = getPredictiveETA(streetRoute, 0, reports);
     const initialPosHeading = getPositionAndHeadingAtProgress(0, streetRoute, totalDist);
@@ -402,7 +421,7 @@ export const SimulationProvider = ({ children }) => {
       }];
     });
     
-    addEvent('Mission Started', `Ambulance ${id} dispatched via OSRM street route (${streetRoute.length} road waypoints). Predictive ETA: ${initialETA} mins.`, 'info');
+    addEvent('Mission Started', `Ambulance ${id} dispatched via high-density real street route (${streetRoute.length} waypoints). Predictive ETA: ${initialETA} mins.`, 'info');
   };
 
   const endMission = (id) => {
@@ -418,14 +437,14 @@ export const SimulationProvider = ({ children }) => {
     position: NODES.TRINITY.pos, 
     heading: 0,
     eta: 0, 
-    route: DETAILED_STREET_FALLBACKS.route1
+    route: REAL_STREET_ROUTES.route1
   };
   
   useEffect(() => {
     if (activeMissions.length === 0) return;
 
-    const SIMULATION_SPEED = 0.015; 
-    const TRIGGER_RADIUS = 0.003; 
+    const SIMULATION_SPEED = 0.008; 
+    const TRIGGER_RADIUS = 0.004; 
 
     const interval = setInterval(() => {
       setActiveMissions(prevMissions => {
@@ -461,7 +480,7 @@ export const SimulationProvider = ({ children }) => {
                 const singleAmb = approachingMissions[0];
                 if (light.status !== 'green' || light.prioritizedFor !== singleAmb.id) {
                   lightsUpdated = true;
-                  addEvent('Corridor Cleared', `${light.name} turned green for ${singleAmb.id}`, 'success');
+                  addEvent('Corridor Cleared 🟢', `${light.name} PREEMPTED to GREEN for ${singleAmb.id}`, 'success');
                   return { ...light, status: 'green', prioritizedFor: singleAmb.id };
                 }
                 return light;
@@ -503,7 +522,7 @@ export const SimulationProvider = ({ children }) => {
         
         return anyUpdated ? newMissions : prevMissions;
       });
-    }, 800);
+    }, 400);
 
     return () => clearInterval(interval);
   }, [activeMissions.length, addEvent, reports]);
@@ -528,7 +547,7 @@ export const SimulationProvider = ({ children }) => {
       progress: legacyMission.progress,
       ambulancePosition: legacyMission.position || NODES.TRINITY.pos,
       heading: legacyMission.heading || 0,
-      route: legacyMission.route || DETAILED_STREET_FALLBACKS.route1,
+      route: legacyMission.route || REAL_STREET_ROUTES.route1,
       eta: legacyMission.eta || 0
     }}>
       {children}

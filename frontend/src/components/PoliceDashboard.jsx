@@ -21,7 +21,10 @@ L.Icon.Default.mergeOptions({
 
 const LiveTrackingMap = ({ onClose }) => {
   const { activeMissions } = useSimulation();
-  const center = activeMissions.length > 0 ? activeMissions[0].route[1] : [12.9715, 77.6000];
+  const defaultCenter = [12.9715, 77.6000];
+  const center = (activeMissions && activeMissions.length > 0 && activeMissions[0].position && Array.isArray(activeMissions[0].position) && activeMissions[0].position.length >= 2)
+    ? activeMissions[0].position
+    : defaultCenter;
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
@@ -33,7 +36,7 @@ const LiveTrackingMap = ({ onClose }) => {
               <Radio className="w-5 h-5 text-purple-500 animate-pulse" />
               <span>Global GIS Fleet Tracking</span>
             </h2>
-            <p className="text-xs font-mono font-bold text-purple-600 dark:text-purple-400">ACTIVE DISPATCHES: {activeMissions.length}</p>
+            <p className="text-xs font-mono font-bold text-purple-600 dark:text-purple-400">ACTIVE DISPATCHES: {activeMissions ? activeMissions.length : 0}</p>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center font-bold hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors cursor-pointer"><X className="w-4 h-4" /></button>
         </div>
@@ -44,16 +47,20 @@ const LiveTrackingMap = ({ onClose }) => {
               attribution='&copy; OpenStreetMap'
               url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
             />
-            {activeMissions.map(mission => (
-              <React.Fragment key={mission.id}>
-                <Polyline positions={mission.route} color={mission.color || "#10b981"} weight={6} opacity={0.85} strokeLinecap="round" strokeLinejoin="round" style={{ filter: `drop-shadow(0 0 12px ${mission.color || '#10b981'})` }} />
-                <Marker position={mission.position} icon={createTacticalAmbulanceIcon(mission.heading || 0)}>
-                  <Popup><div className="font-bold text-center">🚑 Unit {mission.id}<br/>ETA: {mission.eta}m<br/>Heading: {Math.round(mission.heading || 0)}°</div></Popup>
-                </Marker>
-                <Marker position={mission.route[mission.route.length - 1]}>
-                  <Popup>Destination</Popup>
-                </Marker>
-              </React.Fragment>
+            {activeMissions && activeMissions.map(mission => (
+              mission && mission.route && mission.position && (
+                <React.Fragment key={mission.id}>
+                  <Polyline positions={mission.route} color={mission.color || "#10b981"} weight={6} opacity={0.85} strokeLinecap="round" strokeLinejoin="round" style={{ filter: `drop-shadow(0 0 12px ${mission.color || '#10b981'})` }} />
+                  <Marker position={mission.position} icon={createTacticalAmbulanceIcon(mission.heading || 0)}>
+                    <Popup><div className="font-bold text-center">🚑 Unit {mission.id}<br/>ETA: {mission.eta}m<br/>Heading: {Math.round(mission.heading || 0)}°</div></Popup>
+                  </Marker>
+                  {mission.route.length > 0 && (
+                    <Marker position={mission.route[mission.route.length - 1]}>
+                      <Popup>Destination</Popup>
+                    </Marker>
+                  )}
+                </React.Fragment>
+              )
             ))}
           </MapContainer>
         </div>
@@ -93,6 +100,8 @@ const PoliceDashboard = () => {
     }));
   };
 
+  const activeCount = activeMissions ? activeMissions.length : 0;
+
   return (
     <div className="w-full p-4 md:p-8">
       <div className="max-w-5xl mx-auto">
@@ -112,19 +121,19 @@ const PoliceDashboard = () => {
           <div className="md:text-right flex md:block items-center space-x-4 md:space-x-0">
             <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-widest font-black mb-1">Preemption Status</p>
             <div className="flex items-center space-x-2">
-              <div className={`w-3 h-3 rounded-full ${activeMissions.length > 0 ? 'bg-purple-500 animate-ping' : 'bg-emerald-500'}`}></div>
-              <span className="font-mono text-xs font-bold">{activeMissions.length > 0 ? '⚡ ACTIVE PREEMPTION' : '● SYSTEM MONITORING'}</span>
+              <div className={`w-3 h-3 rounded-full ${activeCount > 0 ? 'bg-purple-500 animate-ping' : 'bg-emerald-500'}`}></div>
+              <span className="font-mono text-xs font-bold">{activeCount > 0 ? '⚡ ACTIVE PREEMPTION' : '● SYSTEM MONITORING'}</span>
             </div>
           </div>
         </div>
 
-        {activeMissions.length > 0 && (
+        {activeCount > 0 && (
           <button 
             onClick={() => setShowMap(true)} 
             className="w-full mb-8 backdrop-blur-3xl bg-gradient-to-r from-purple-600 to-indigo-600 border border-purple-400 shadow-lg transition-all text-white font-black text-xs uppercase tracking-widest py-4 rounded-2xl animate-in fade-in slide-in-from-top-4 hover:scale-[1.01] flex items-center justify-center space-x-2 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-400"
           >
             <Search className="w-4 h-4" />
-            <span>LAUNCH LIVE GLOBAL GIS MAP ({activeMissions.length} ACTIVE DISPATCHES)</span>
+            <span>LAUNCH LIVE GLOBAL GIS MAP ({activeCount} ACTIVE DISPATCHES)</span>
           </button>
         )}
 

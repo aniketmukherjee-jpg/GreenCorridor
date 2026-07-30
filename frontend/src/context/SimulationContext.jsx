@@ -56,7 +56,7 @@ const DETAILED_STREET_FALLBACKS = {
 
 // Calculate direction bearing angle (degrees 0-360) between 2 lat/lng coordinates
 export const calculateBearing = (p1, p2) => {
-  if (!p1 || !p2 || (p1[0] === p2[0] && p1[1] === p2[1])) return 0;
+  if (!p1 || !p2 || !Array.isArray(p1) || !Array.isArray(p2) || (p1[0] === p2[0] && p1[1] === p2[1])) return 0;
   const dLng = (p2[1] - p1[1]) * Math.PI / 180;
   const lat1 = p1[0] * Math.PI / 180;
   const lat2 = p2[0] * Math.PI / 180;
@@ -68,9 +68,10 @@ export const calculateBearing = (p1, p2) => {
 
 // Helper to create high-definition tactical rotated ambulance Leaflet icon with dual strobes
 export const createTacticalAmbulanceIcon = (heading = 0) => {
+  const safeHeading = isNaN(heading) ? 0 : heading;
   return L.divIcon({
     html: `
-      <div style="position: relative; width: 44px; height: 44px; display: flex; items-center; justify-center; transform: rotate(${heading}deg); transition: transform 0.3s ease;">
+      <div style="position: relative; width: 44px; height: 44px; display: flex; items-center; justify-center; transform: rotate(${safeHeading}deg); transition: transform 0.3s ease;">
         <!-- Forward Headlight Beam Cone -->
         <div style="position: absolute; top: -18px; left: 50%; transform: translateX(-50%); width: 28px; height: 24px; background: radial-gradient(ellipse at bottom, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0) 80%); pointer-events: none;"></div>
         
@@ -104,9 +105,9 @@ export const createTacticalAmbulanceIcon = (heading = 0) => {
   });
 };
 
-// Haversine Distance formula (as admissible heuristic for A*)
 const haversineDistance = (p1, p2) => {
-  const R = 6371; // Earth radius in km
+  if (!p1 || !p2) return 0;
+  const R = 6371; 
   const dLat = (p2[0] - p1[0]) * Math.PI / 180;
   const dLng = (p2[1] - p1[1]) * Math.PI / 180;
   const a = 
@@ -117,21 +118,6 @@ const haversineDistance = (p1, p2) => {
   return R * c;
 };
 
-// Distance from point P to line segment AB
-const distanceToSegment = (px, py, ax, ay, bx, by) => {
-  const dx = bx - ax;
-  const dy = by - ay;
-  if (dx === 0 && dy === 0) {
-    return Math.sqrt((px - ax) ** 2 + (py - ay) ** 2);
-  }
-  const t = ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy);
-  const clampedT = Math.max(0, Math.min(1, t));
-  const closestX = ax + clampedT * dx;
-  const closestY = ay + clampedT * dy;
-  return Math.sqrt((px - closestX) ** 2 + (py - closestY) ** 2);
-};
-
-// A* pathfinding algorithm implementation
 export const aStar = (startId, targetId, trafficWeights = {}) => {
   const openSet = [startId];
   const cameFrom = {};
@@ -173,7 +159,7 @@ export const aStar = (startId, targetId, trafficWeights = {}) => {
     for (let neighbor of neighbors) {
       const tentativeG = gScore[current] + neighbor.cost;
       if (tentativeG < gScore[neighbor.id]) {
-        cameFrom[neighbor.id] = current;
+        cameFrom[neighbor.id] = tentativeG;
         gScore[neighbor.id] = tentativeG;
         fScore[neighbor.id] = tentativeG + haversineDistance(NODES[neighbor.id].pos, NODES[targetId].pos);
         if (!openSet.includes(neighbor.id)) {
@@ -185,29 +171,36 @@ export const aStar = (startId, targetId, trafficWeights = {}) => {
   return null;
 };
 
-// Fetch real OSRM street route geometry with fallback to detailed Bangalore street waypoints
+// Fetch real OSRM street route geometry with fallback
 export const fetchRealStreetRoute = async (nodePath, routeId = 'route1') => {
-  if (!nodePath || nodePath.length < 2) {
-    return DETAILED_STREET_FALLBACKS[routeId] || DETAILED_STREET_FALLBACKS.route1;
+  const fallbackBase = DETAILED_STREET_FALLBACKS[routeId] || DETAILED_STREET_FALLBACKS.route1;
+  if (!nodePath || !Array.isArray(nodePath) || nodePath.length < 2) {
+    return fallbackBase;
   }
 
   try {
-    const coordsString = nodePath.map(id => `${NODES[id].pos[1]},${NODES[id].pos[0]}`).join(';');
-    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson`;
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    const coordsString = nodePath.map(id => {
+      const n = NODES[id];
+      return n ? `${n.pos[1]},${n.pos[0]}` : null;
+    }).filter(Boolean).join(';');
 
-    const res = await fetch(osrmUrl, { signal: controller.signal });
-    clearTimeout(timeoutId);
+    if (coordsString) {
+      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
 
-    if (res.ok) {
-      const data = await res.json();
-      if (data.routes && data.routes.length > 0) {
-        // GeoJSON is [lng, lat], flip to Leaflet [lat, lng]
-        const streetCoords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-        if (streetCoords.length > 5) {
-          return streetCoords;
+      const res = await fetch(osrmUrl, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.routes && data.routes.length > 0 && data.routes[0].geometry && data.routes[0].geometry.coordinates) {
+          const streetCoords = data.routes[0].geometry.coordinates
+            .map(c => [c[1], c[0]])
+            .filter(c => Array.isArray(c) && c.length >= 2 && !isNaN(c[0]) && !isNaN(c[1]));
+          if (streetCoords.length > 5) {
+            return streetCoords;
+          }
         }
       }
     }
@@ -215,51 +208,41 @@ export const fetchRealStreetRoute = async (nodePath, routeId = 'route1') => {
     console.warn("OSRM routing offline or timed out, using detailed street fallback:", err);
   }
 
-  // Interpolate fallback waypoints to ensure dense smooth street polylines
-  const fallbackBase = DETAILED_STREET_FALLBACKS[routeId] || DETAILED_STREET_FALLBACKS.route1;
-  const denseFallback = [];
-  for (let i = 0; i < fallbackBase.length - 1; i++) {
-    const p1 = fallbackBase[i];
-    const p2 = fallbackBase[i + 1];
-    denseFallback.push(p1);
-    // Add 4 intermediate street points between nodes
-    for (let k = 1; k <= 4; k++) {
-      const ratio = k / 5;
-      denseFallback.push([
-        p1[0] + (p2[0] - p1[0]) * ratio,
-        p1[1] + (p2[1] - p1[1]) * ratio
-      ]);
-    }
-  }
-  denseFallback.push(fallbackBase[fallbackBase.length - 1]);
-  return denseFallback;
+  return fallbackBase;
 };
 
 const calculateTotalDistance = (route) => {
+  if (!route || !Array.isArray(route) || route.length < 2) return 1;
   let total = 0;
   for (let i = 0; i < route.length - 1; i++) {
     const p1 = route[i];
     const p2 = route[i+1];
-    total += Math.sqrt(Math.pow(p2[0]-p1[0], 2) + Math.pow(p2[1]-p1[1], 2));
+    if (p1 && p2 && !isNaN(p1[0]) && !isNaN(p2[0])) {
+      total += Math.sqrt(Math.pow(p2[0]-p1[0], 2) + Math.pow(p2[1]-p1[1], 2));
+    }
   }
-  return total;
+  return total > 0 ? total : 1;
 };
 
 export const getPositionAndHeadingAtProgress = (progress, route, totalDist) => {
-  if (!route || route.length === 0) return { position: [12.9716, 77.5946], heading: 0 };
-  if (progress <= 0) return { position: route[0], heading: calculateBearing(route[0], route[1] || route[0]) };
-  if (progress >= 1) return { position: route[route.length - 1], heading: calculateBearing(route[route.length - 2] || route[0], route[route.length - 1]) };
+  const DEFAULT_POS = [12.9716, 77.5946];
+  if (!route || !Array.isArray(route) || route.length === 0) return { position: DEFAULT_POS, heading: 0 };
+  const validRoute = route.filter(pt => Array.isArray(pt) && pt.length >= 2 && !isNaN(pt[0]) && !isNaN(pt[1]));
+  if (validRoute.length === 0) return { position: DEFAULT_POS, heading: 0 };
+  if (validRoute.length === 1 || progress <= 0) return { position: validRoute[0], heading: calculateBearing(validRoute[0], validRoute[1] || validRoute[0]) };
+  if (progress >= 1) return { position: validRoute[validRoute.length - 1], heading: calculateBearing(validRoute[validRoute.length - 2] || validRoute[0], validRoute[validRoute.length - 1]) };
 
-  const targetDist = progress * totalDist;
+  const dist = totalDist > 0 ? totalDist : calculateTotalDistance(validRoute);
+  const targetDist = progress * dist;
   let currentDist = 0;
 
-  for (let i = 0; i < route.length - 1; i++) {
-    const p1 = route[i];
-    const p2 = route[i+1];
+  for (let i = 0; i < validRoute.length - 1; i++) {
+    const p1 = validRoute[i];
+    const p2 = validRoute[i+1];
     const segmentDist = Math.sqrt(Math.pow(p2[0]-p1[0], 2) + Math.pow(p2[1]-p1[1], 2));
     
     if (currentDist + segmentDist >= targetDist) {
-      const segmentProgress = (targetDist - currentDist) / segmentDist;
+      const segmentProgress = segmentDist > 0 ? (targetDist - currentDist) / segmentDist : 0;
       const lat = p1[0] + (p2[0] - p1[0]) * segmentProgress;
       const lng = p1[1] + (p2[1] - p1[1]) * segmentProgress;
       const heading = calculateBearing(p1, p2);
@@ -267,11 +250,12 @@ export const getPositionAndHeadingAtProgress = (progress, route, totalDist) => {
     }
     currentDist += segmentDist;
   }
-  return { position: route[route.length - 1], heading: 0 };
+  return { position: validRoute[validRoute.length - 1], heading: 0 };
 };
 
 // Heuristic Predictive ETA formula
 const getPredictiveETA = (route, progress, reportsList, currentTime = new Date()) => {
+  if (!route || !Array.isArray(route) || route.length < 2) return 5;
   const remainingRoute = route.slice(Math.floor(progress * route.length));
   if (remainingRoute.length < 2) return 1;
 
@@ -293,27 +277,31 @@ const getPredictiveETA = (route, progress, reportsList, currentTime = new Date()
   let congestionFactor = 0;
   let incidentPenalty = 0;
 
-  reportsList.forEach(report => {
-    const rx = report.lat || report.latitude;
-    const ry = report.lng || report.longitude;
-    if (!rx || !ry) return;
+  if (Array.isArray(reportsList)) {
+    reportsList.forEach(report => {
+      const rx = report.lat || report.latitude;
+      const ry = report.lng || report.longitude;
+      if (!rx || !ry) return;
 
-    let isNearRoute = false;
-    remainingRoute.forEach(pt => {
-      const dist = Math.sqrt((pt[0] - rx) ** 2 + (pt[1] - ry) ** 2);
-      if (dist < 0.0045) isNearRoute = true;
-    });
+      let isNearRoute = false;
+      remainingRoute.forEach(pt => {
+        if (pt && pt.length >= 2) {
+          const dist = Math.sqrt((pt[0] - rx) ** 2 + (pt[1] - ry) ** 2);
+          if (dist < 0.0045) isNearRoute = true;
+        }
+      });
 
-    if (isNearRoute) {
-      if (report.severity === 'high' || report.severity === 'HIGH') {
-        incidentPenalty += 5.0;
-        congestionFactor += 0.20;
-      } else {
-        incidentPenalty += 2.0;
-        congestionFactor += 0.05;
+      if (isNearRoute) {
+        if (report.severity === 'high' || report.severity === 'HIGH') {
+          incidentPenalty += 5.0;
+          congestionFactor += 0.20;
+        } else {
+          incidentPenalty += 2.0;
+          congestionFactor += 0.05;
+        }
       }
-    }
-  });
+    });
+  }
 
   const finalETA = baseTimeMins * (1 + timeOfDayFactor + congestionFactor) + incidentPenalty;
   return Math.max(1, Math.ceil(finalETA));
@@ -380,13 +368,13 @@ export const SimulationProvider = ({ children }) => {
         id,
         routeId,
         progress: 0,
-        position: initialPosHeading.position,
-        heading: initialPosHeading.heading,
+        position: initialPosHeading.position || NODES.TRINITY.pos,
+        heading: initialPosHeading.heading || 0,
         state: 'NAVIGATING',
-        eta: initialETA,
+        eta: initialETA || 5,
         priority,
         route: streetRoute,
-        totalDist,
+        totalDist: totalDist || 1,
         color
       }];
     });
@@ -420,7 +408,7 @@ export const SimulationProvider = ({ children }) => {
       setActiveMissions(prevMissions => {
         let anyUpdated = false;
         const newMissions = prevMissions.map(mission => {
-          if (mission.state !== 'NAVIGATING') return mission;
+          if (!mission || mission.state !== 'NAVIGATING') return mission;
           
           anyUpdated = true;
           const nextProgress = mission.progress + SIMULATION_SPEED;
@@ -437,7 +425,7 @@ export const SimulationProvider = ({ children }) => {
             let lightsUpdated = false;
             const newLights = prevLights.map(light => {
               const approachingMissions = prevMissions.filter(m => {
-                if (m.state !== 'NAVIGATING') return false;
+                if (!m || m.state !== 'NAVIGATING' || !m.position) return false;
                 const d = Math.sqrt(Math.pow(light.pos[0] - m.position[0], 2) + Math.pow(light.pos[1] - m.position[1], 2));
                 return d < TRIGGER_RADIUS;
               });
@@ -515,10 +503,10 @@ export const SimulationProvider = ({ children }) => {
       missionState: legacyMission.state,
       setMissionState: setLegacyState,
       progress: legacyMission.progress,
-      ambulancePosition: legacyMission.position,
+      ambulancePosition: legacyMission.position || NODES.TRINITY.pos,
       heading: legacyMission.heading || 0,
-      route: legacyMission.route,
-      eta: legacyMission.eta
+      route: legacyMission.route || DETAILED_STREET_FALLBACKS.route1,
+      eta: legacyMission.eta || 0
     }}>
       {children}
     </SimulationContext.Provider>

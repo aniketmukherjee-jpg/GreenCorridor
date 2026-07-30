@@ -6,14 +6,14 @@ import L from 'leaflet';
 
 // --- Road Graph Network Representation ---
 export const NODES = {
-  TRINITY: { id: 'TRINITY', name: 'Trinity Circle', pos: [12.9730, 77.6160] },
-  MG_ROAD: { id: 'MG_ROAD', name: 'MG Road Metro', pos: [12.9715, 77.6000] },
+  TRINITY: { id: 'TRINITY', name: 'Trinity Circle', pos: [12.9725, 77.6145] },
+  MG_ROAD: { id: 'MG_ROAD', name: 'Anil Kumble Circle', pos: [12.9752, 77.6012] },
   CANTONMENT: { id: 'CANTONMENT', name: 'Cantonment', pos: [12.9850, 77.5900] },
   VIDHANA_SOUDHA: { id: 'VIDHANA_SOUDHA', name: 'Vidhana Soudha', pos: [12.9750, 77.5900] },
-  HUDSON: { id: 'HUDSON', name: 'Hudson Circle', pos: [12.9695, 77.5880] },
-  CORP_CIRCLE: { id: 'CORP_CIRCLE', name: 'Corporation Circle', pos: [12.9685, 77.5850] },
-  TOWN_HALL: { id: 'TOWN_HALL', name: 'Town Hall', pos: [12.9660, 77.5800] },
-  VICTORIA_HOSP: { id: 'VICTORIA_HOSP', name: 'Victoria Hospital', pos: [12.9630, 77.5740] }
+  HUDSON: { id: 'HUDSON', name: 'Hudson Circle', pos: [12.9688, 77.5875] },
+  CORP_CIRCLE: { id: 'CORP_CIRCLE', name: 'Corporation Circle', pos: [12.9678, 77.5852] },
+  TOWN_HALL: { id: 'TOWN_HALL', name: 'Town Hall', pos: [12.9658, 77.5815] },
+  VICTORIA_HOSP: { id: 'VICTORIA_HOSP', name: 'Victoria Hospital', pos: [12.9625, 77.5742] }
 };
 
 export const EDGES = [
@@ -26,6 +26,13 @@ export const EDGES = [
   { from: 'CORP_CIRCLE', to: 'TOWN_HALL', baseDist: 0.7, weight: 1.0 },
   { from: 'TOWN_HALL', to: 'VICTORIA_HOSP', baseDist: 0.8, weight: 1.0 },
   { from: 'CORP_CIRCLE', to: 'VICTORIA_HOSP', baseDist: 1.4, weight: 1.0 }
+];
+
+export const HOSPITALS = [
+  { id: 'H1', name: 'Victoria Hospital (Trauma Center)', pos: [12.9625, 77.5742], beds: '12 ICU Beds Available', isDestination: true },
+  { id: 'H2', name: "St. Martha's Hospital", pos: [12.9695, 77.5940], beds: '8 ICU Beds Available', isDestination: false },
+  { id: 'H3', name: 'Bowring & Lady Curzon Hospital', pos: [12.9820, 77.6050], beds: '15 ICU Beds Available', isDestination: false },
+  { id: 'H4', name: "St. John's Medical Center", pos: [12.9340, 77.6220], beds: '20 ICU Beds Available', isDestination: false }
 ];
 
 // Helper to generate dense street-following polyline points between anchor keypoints
@@ -47,40 +54,32 @@ const interpolateStreetPoints = (anchors, pointsPerSegment = 10) => {
   return dense;
 };
 
-// Anchor waypoints strictly following Bangalore street curves & intersections
+// Anchor waypoints matching exact Google Maps street driving turns
 const ANCHORS_ROUTE1 = [
-  [12.9730, 77.6160], // Trinity Circle Signal
-  [12.9728, 77.6130], // Trinity Church Road
-  [12.9723, 77.6080], // Utility Building / Cauvery Handicrafts
-  [12.9718, 77.6040], // Brigade Road Junction
-  [12.9715, 77.6000], // MG Road Metro Station
-  [12.9712, 77.5975], // Anil Kumble Circle
-  [12.9708, 77.5950], // St. Mark's Road Junction
-  [12.9704, 77.5925], // Kasturba Road Curve (Cubbon Park)
-  [12.9698, 77.5900], // Government Museum / Visvesvaraya Museum
-  [12.9695, 77.5880], // Hudson Circle Roundabout
-  [12.9690, 77.5865], // Nrupathunga Road
-  [12.9685, 77.5850], // Corporation Circle
-  [12.9675, 77.5830], // JC Road Straight
-  [12.9660, 77.5800], // Town Hall Junction Signal
-  [12.9650, 77.5780], // Silver Jubilee Park Road
-  [12.9642, 77.5760], // KR Market Junction
-  [12.9635, 77.5748], // Fort High School / Victoria Hospital Road
-  [12.9630, 77.5740]  // Victoria Hospital Emergency Gate
+  [12.9725, 77.6145], // Trinity Circle Signal (MG Road East)
+  [12.9735, 77.6100], // MG Road Metro Station
+  [12.9745, 77.6050], // Brigade Road Junction Signal
+  [12.9752, 77.6012], // Anil Kumble Circle Signal (MG Road West end)
+  [12.9735, 77.6008], // Turn South onto St. Mark's Road
+  [12.9715, 77.6002], // Residency Road Junction
+  [12.9702, 77.5960], // Turn West onto Vittal Mallya Road (UB City)
+  [12.9695, 77.5925], // Kasturba Road / St. Martha's Hospital
+  [12.9688, 77.5875], // Hudson Circle Roundabout Signal
+  [12.9678, 77.5852], // Corporation Circle
+  [12.9658, 77.5815], // Turn South onto JC Road (Town Hall Signal)
+  [12.9642, 77.5765], // KR Market Junction
+  [12.9625, 77.5742]  // Victoria Hospital Emergency Entrance Gate
 ];
 
 const ANCHORS_ROUTE2 = [
   [12.9850, 77.5900], // Cantonment Railway Station
-  [12.9825, 77.5908], // Miller Road
-  [12.9800, 77.5912], // Infant Jesus Church / High Grounds
-  [12.9775, 77.5905], // Raj Bhavan Road
+  [12.9820, 77.5910], // Miller Road
+  [12.9780, 77.5905], // Raj Bhavan Road
   [12.9750, 77.5900], // Vidhana Soudha Junction Signal
-  [12.9725, 77.5895], // High Court of Karnataka / Ambedkar Veedhi
-  [12.9705, 77.5890], // Cubbon Park Post Office
-  [12.9695, 77.5880], // Hudson Circle Roundabout
-  [12.9685, 77.5850], // Corporation Circle
-  [12.9660, 77.5800], // Town Hall Junction
-  [12.9630, 77.5740]  // Victoria Hospital
+  [12.9720, 77.5892], // Ambedkar Veedhi / High Court
+  [12.9688, 77.5875], // Hudson Circle Roundabout Signal
+  [12.9658, 77.5815], // Town Hall Junction Signal
+  [12.9625, 77.5742]  // Victoria Hospital Gate
 ];
 
 export const REAL_STREET_ROUTES = {
@@ -172,6 +171,29 @@ export const createTrafficSignalIcon = (status = 'red', name = '') => {
   });
 };
 
+// Helper to create 3D Hospital Leaflet map icon with glowing badge
+export const createHospitalIcon = (name = 'Hospital', isDestination = false) => {
+  const color = isDestination ? '#EF4444' : '#0891B2';
+  return L.divIcon({
+    html: `
+      <div style="position: relative; display: flex; flex-direction: column; items-center; justify-center; filter: drop-shadow(0 0 12px ${color}); cursor: pointer;">
+        ${isDestination ? `<div style="position: absolute; top: -6px; left: -6px; width: 44px; height: 44px; border-radius: 50%; border: 2px solid #EF4444; animation: ping 1.2s infinite; opacity: 0.7;"></div>` : ''}
+        
+        <!-- 3D Hospital Building Badge SVG -->
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="4" width="24" height="24" rx="6" fill="#0F172A" stroke="${color}" stroke-width="2.5"/>
+          <rect x="13" y="9" width="6" height="14" fill="${color}" rx="1"/>
+          <rect x="9" y="13" width="14" height="6" fill="${color}" rx="1"/>
+        </svg>
+      </div>
+    `,
+    className: 'custom-hospital-icon',
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16],
+  });
+};
+
 const haversineDistance = (p1, p2) => {
   if (!p1 || !p2) return 0;
   const R = 6371; 
@@ -252,7 +274,7 @@ const calculateTotalDistance = (route) => {
 };
 
 export const getPositionAndHeadingAtProgress = (progress, route, totalDist) => {
-  const DEFAULT_POS = [12.9716, 77.5946];
+  const DEFAULT_POS = [12.9725, 77.6145];
   if (!route || !Array.isArray(route) || route.length === 0) return { position: DEFAULT_POS, heading: 0 };
   const validRoute = route.filter(pt => Array.isArray(pt) && pt.length >= 2 && !isNaN(pt[0]) && !isNaN(pt[1]));
   if (validRoute.length === 0) return { position: DEFAULT_POS, heading: 0 };
@@ -335,11 +357,11 @@ const getPredictiveETA = (route, progress, reportsList, currentTime = new Date()
 };
 
 const INITIAL_LIGHTS = [
-  { id: 'L1', name: 'Trinity Signal', pos: [12.9725, 77.6100], status: 'red' },
-  { id: 'L2', name: 'MG Road Junction', pos: [12.9715, 77.6000], status: 'red' },
-  { id: 'L3', name: 'Vidhana Soudha Junction', pos: [12.9750, 77.5900], status: 'red' },
-  { id: 'L4', name: 'Hudson Circle', pos: [12.9695, 77.5880], status: 'red' },
-  { id: 'L5', name: 'Town Hall', pos: [12.9660, 77.5800], status: 'red' }
+  { id: 'L1', name: 'Trinity Signal', pos: [12.9725, 77.6145], status: 'red' },
+  { id: 'L2', name: 'MG Road Junction', pos: [12.9745, 77.6050], status: 'red' },
+  { id: 'L3', name: 'Anil Kumble Circle', pos: [12.9752, 77.6012], status: 'red' },
+  { id: 'L4', name: 'Hudson Circle', pos: [12.9688, 77.5875], status: 'red' },
+  { id: 'L5', name: 'Town Hall', pos: [12.9658, 77.5815], status: 'red' }
 ];
 
 const SimulationContext = createContext(null);
@@ -421,7 +443,7 @@ export const SimulationProvider = ({ children }) => {
       }];
     });
     
-    addEvent('Mission Started', `Ambulance ${id} dispatched via high-density real street route (${streetRoute.length} waypoints). Predictive ETA: ${initialETA} mins.`, 'info');
+    addEvent('Mission Started', `Ambulance ${id} dispatched via Google Maps street route (${streetRoute.length} waypoints). Predictive ETA: ${initialETA} mins.`, 'info');
   };
 
   const endMission = (id) => {

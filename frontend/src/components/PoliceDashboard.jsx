@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useSimulation, createTacticalAmbulanceIcon, createTrafficSignalIcon } from '../context/SimulationContext';
+import { useSimulation, createTacticalAmbulanceIcon, createTrafficSignalIcon, createHospitalIcon, HOSPITALS } from '../context/SimulationContext';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import { 
@@ -34,7 +34,7 @@ const LiveTrackingMap = ({ onClose }) => {
           <div>
             <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
               <Radio className="w-5 h-5 text-purple-500 animate-pulse" />
-              <span>Global GIS Fleet & Signal Command Map</span>
+              <span>Global GIS Fleet & Hospital Command Map</span>
             </h2>
             <p className="text-xs font-mono font-bold text-purple-600 dark:text-purple-400">ACTIVE DISPATCHES: {activeMissions ? activeMissions.length : 0}</p>
           </div>
@@ -48,6 +48,18 @@ const LiveTrackingMap = ({ onClose }) => {
               url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
             />
             
+            {/* Render 3D Hospital Markers */}
+            {HOSPITALS.map(h => (
+              <Marker key={h.id} position={h.pos} icon={createHospitalIcon(h.name, h.isDestination)}>
+                <Popup>
+                  <div className="font-extrabold text-xs text-center p-1">
+                    <div className="text-cyan-500 font-black">🏥 {h.name}</div>
+                    <div className="text-[10px] text-slate-400 font-mono mt-0.5">{h.beds}</div>
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
+
             {/* Live Traffic Signal Markers */}
             {trafficLights && trafficLights.map(light => (
               <Marker key={light.id} position={light.pos} icon={createTrafficSignalIcon(light.status, light.name)}>
@@ -69,11 +81,6 @@ const LiveTrackingMap = ({ onClose }) => {
                   <Marker position={mission.position} icon={createTacticalAmbulanceIcon(mission.heading || 0)}>
                     <Popup><div className="font-bold text-center">🚑 Unit {mission.id}<br/>ETA: {mission.eta}m<br/>Heading: {Math.round(mission.heading || 0)}°</div></Popup>
                   </Marker>
-                  {mission.route.length > 0 && (
-                    <Marker position={mission.route[mission.route.length - 1]}>
-                      <Popup>Destination</Popup>
-                    </Marker>
-                  )}
                 </React.Fragment>
               )
             ))}

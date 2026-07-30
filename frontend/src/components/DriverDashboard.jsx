@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useToast } from '../context/ToastContext';
-import { useSimulation, createTacticalAmbulanceIcon, createTrafficSignalIcon } from '../context/SimulationContext';
+import { useSimulation, createTacticalAmbulanceIcon, createTrafficSignalIcon, createHospitalIcon, HOSPITALS } from '../context/SimulationContext';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -122,6 +122,18 @@ const DriverDashboard = () => {
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
           />
 
+          {/* Render 3D Hospital Markers */}
+          {HOSPITALS.map(h => (
+            <Marker key={h.id} position={h.pos} icon={createHospitalIcon(h.name, h.isDestination)}>
+              <Popup>
+                <div className="font-extrabold text-xs text-center p-1">
+                  <div className="text-cyan-500 font-black">🏥 {h.name}</div>
+                  <div className="text-[10px] text-slate-400 font-mono mt-0.5">{h.beds}</div>
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+
           {/* Live Physical Traffic Signal Markers on Map */}
           {trafficLights && trafficLights.map(light => (
             <Marker key={light.id} position={light.pos} icon={createTrafficSignalIcon(light.status, light.name)}>
@@ -141,9 +153,6 @@ const DriverDashboard = () => {
               <Polyline positions={route} color="#10b981" weight={6} opacity={0.85} strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'drop-shadow(0 0 12px rgba(16,185,129,0.9))' }} />
               <Marker position={ambulancePosition} icon={createTacticalAmbulanceIcon(heading)}>
                 <Popup>Vehicle Telemetry Active (Heading: {Math.round(heading)}°)</Popup>
-              </Marker>
-              <Marker position={route[route.length - 1]}>
-                <Popup>Destination: Victoria Hospital</Popup>
               </Marker>
             </>
           )}
